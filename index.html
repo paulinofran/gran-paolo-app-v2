@@ -154,15 +154,6 @@
         </select>
       </div>
       <div class="field-group" id="grupoVencimento" style="display:none;"><label id="labelVencimento">Vencimento</label><input id="campoVencimento" type="date"></div>
-      <div class="field-group" id="grupoInsumo" style="display:none;">
-        <label>Itens de insumo dessa nota (opcional — uma nota pode ter vários)</label>
-        <div style="display:flex;gap:8px;">
-          <select id="campoItemInsumo" style="flex:1;"></select>
-          <input type="number" id="campoItemValor" placeholder="Valor" step="0.01" style="width:90px;">
-        </div>
-        <button class="ghost small" style="width:100%;margin-top:6px;" id="btnAddItemNota">+ Adicionar item</button>
-        <div id="itensNotaPreview" style="margin-top:6px;"></div>
-      </div>
       <div class="field-group"><label>Observação (opcional)</label><input type="text" id="campoObservacao" placeholder="Ex: pagar em 2x, conferir com fornecedor..."></div>
       <button class="primary" style="width:100%;margin-top:12px;" id="btnSalvarConta">Salvar</button>
     </div>
@@ -176,8 +167,6 @@
       <select id="rendInsumo"></select>
 
       <h3 style="margin-top:16px;">1. Entrada bruta (o que foi pra produção)</h3>
-      <label>Nota fiscal de origem (opcional, já traz o valor)</label>
-      <select id="rendNota"><option value="">Nenhuma / informar valor manual</option></select>
       <div style="display:flex;gap:8px;">
         <div style="flex:1;"><label>Peso bruto (kg)</label><input type="number" step="0.001" id="rendPesoBruto" placeholder="Ex: 15"></div>
         <div style="flex:1;"><label>Preço por kg (R$)</label><input type="number" step="0.01" id="rendPrecoPorKg" placeholder="Ex: 16.62"></div>
@@ -492,16 +481,11 @@ document.getElementById("btnStatusPagas").addEventListener("click", ()=>setFiltr
 /* ---------- Nova conta (com OCR) ---------- */
 let tipoDocumentoAtual = "boleto";
 let editandoId = null;
-let itensNotaAtual = [];
 function renderNovaConta(){
   document.getElementById("photoPreview").style.display="none";
   document.getElementById("ocrStatus").textContent="";
   document.getElementById("fotoInput").value="";
   document.getElementById("decodStatus").textContent="";
-  const sel = document.getElementById("campoItemInsumo");
-  sel.innerHTML = db.insumos.map(i=>'<option value="'+i.id+'">'+esc(i.nome)+'</option>').join("");
-  document.getElementById("campoItemValor").value = "";
-  itensNotaAtual = [];
 
   if(editandoId){
     const conta = db.contasPagar.find(c=>c.id===editandoId);
@@ -514,8 +498,6 @@ function renderNovaConta(){
     document.getElementById("campoVencimento").value = conta.vencimento || "";
     document.getElementById("campoLinhaDigitavel").value = conta.linhaDigitavel || "";
     document.getElementById("campoObservacao").value = conta.observacao || "";
-    if(nota && nota.itens) itensNotaAtual = nota.itens.map(it=>({...it}));
-    renderItensNotaPreview();
     atualizarVisibilidadeVencimento();
     document.getElementById("screenTitle").textContent = "Editar conta";
     document.getElementById("screenSubtitle").textContent = "Alterando lançamento existente";
@@ -526,40 +508,16 @@ function renderNovaConta(){
     document.getElementById("campoVencimento").value="";
     document.getElementById("campoLinhaDigitavel").value="";
     document.getElementById("campoObservacao").value="";
-    renderItensNotaPreview();
     setTipoDocumento("boleto");
     document.getElementById("screenTitle").textContent = "Nova conta";
     document.getElementById("screenSubtitle").textContent = "O que você tirou foto?";
     document.getElementById("btnSalvarConta").textContent = "Salvar";
   }
 }
-function renderItensNotaPreview(){
-  const box = document.getElementById("itensNotaPreview");
-  if(itensNotaAtual.length===0){ box.innerHTML=""; return; }
-  const total = itensNotaAtual.reduce((s,it)=>s+it.valor,0);
-  box.innerHTML = itensNotaAtual.map((it,idx)=>{
-    const ins = db.insumos.find(i=>i.id===it.insumoId);
-    return '<div class="row" style="padding:4px 0;"><span class="item-sub">'+(ins?esc(ins.nome):it.insumoId)+': R$ '+it.valor.toFixed(2).replace(".",",")+'</span>'+
-      '<button class="small ghost" onclick="removerItemNota('+idx+')">x</button></div>';
-  }).join("") + '<p class="item-sub" style="margin-top:4px;"><strong>Total dos itens: R$ '+total.toFixed(2).replace(".",",")+'</strong></p>';
-}
-function removerItemNota(idx){
-  itensNotaAtual.splice(idx,1);
-  renderItensNotaPreview();
-}
-document.getElementById("btnAddItemNota").addEventListener("click", ()=>{
-  const insumoId = document.getElementById("campoItemInsumo").value;
-  const valor = parseFloat(document.getElementById("campoItemValor").value);
-  if(!valor || valor<=0){ alert("Informe o valor desse item."); return; }
-  itensNotaAtual.push({id:"item_"+Date.now()+"_"+Math.floor(Math.random()*1000), insumoId, valor, lancamentoRendimentoId:null});
-  document.getElementById("campoItemValor").value = "";
-  renderItensNotaPreview();
-});
 function setTipoDocumento(tipo){
   tipoDocumentoAtual = tipo;
   document.getElementById("btnTipoBoleto").classList.toggle("selected", tipo==="boleto");
   document.getElementById("btnTipoNota").classList.toggle("selected", tipo==="nota_fiscal");
-  document.getElementById("grupoInsumo").style.display = tipo==="nota_fiscal" ? "block":"none";
   document.getElementById("grupoLinhaDigitavel").style.display = tipo==="boleto" ? "block":"none";
   document.getElementById("campoFormaPagamento").value = tipo==="boleto" ? "boleto_a_prazo" : "dinheiro";
   atualizarVisibilidadeVencimento();
@@ -718,9 +676,9 @@ document.getElementById("btnSalvarConta").addEventListener("click", ()=>{
     const nota = db.notasFiscais.find(n=>n.id===editandoId);
     if(tipoDocumentoAtual==="nota_fiscal"){
       if(nota){
-        nota.fornecedor = fornecedor; nota.valor = valor; nota.formaPagamento = formaPagamento; nota.itens = itensNotaAtual.slice();
+        nota.fornecedor = fornecedor; nota.valor = valor; nota.formaPagamento = formaPagamento;
       } else {
-        db.notasFiscais.push({id:editandoId, empresaId:EMPRESA_ID, fornecedor, valor, formaPagamento, dataEmissao:hoje, itens:itensNotaAtual.slice()});
+        db.notasFiscais.push({id:editandoId, empresaId:EMPRESA_ID, fornecedor, valor, formaPagamento, dataEmissao:hoje});
       }
     } else if(nota){
       db.notasFiscais = db.notasFiscais.filter(n=>n.id!==editandoId);
@@ -743,11 +701,11 @@ document.getElementById("btnSalvarConta").addEventListener("click", ()=>{
     dataLancamento: hoje
   });
 
-  // Se for nota fiscal, também registra separadamente pra vínculo com insumo/custo (pode ter vários itens)
+  // Se for nota fiscal, também registra separadamente pra histórico/custo
   if(tipoDocumentoAtual==="nota_fiscal"){
     db.notasFiscais.push({
       id, empresaId:EMPRESA_ID, fornecedor, valor, formaPagamento,
-      dataEmissao: hoje, itens: itensNotaAtual.slice()
+      dataEmissao: hoje
     });
   }
   saveDB(db);
@@ -764,7 +722,6 @@ function formatPeso(g){
 function renderRendimento(){
   const selInsumo = document.getElementById("rendInsumo");
   selInsumo.innerHTML = db.insumos.map(i=>'<option value="'+i.id+'">'+esc(i.nome)+' (ref: '+i.porcaoReferenciaG+'g)</option>').join("");
-  atualizarOpcoesItemNota();
   document.getElementById("rendValorCompra").value="";
   document.getElementById("rendCustoAdicional").value="";
   document.getElementById("rendPesoFinal").value="";
@@ -781,29 +738,6 @@ function renderRendimento(){
         '<p class="item-sub">R$ '+r.custoPorGrama.toFixed(4).replace(".",",")+" / g (R$ "+(r.custoPorGrama*(r.porcaoReferenciaG||0)).toFixed(2).replace(".",",")+" / porção de "+(r.porcaoReferenciaG||"?")+"g)"+rendPct+" · "+r.data+'</p></div>';
     }).join("") : "";
 }
-function atualizarOpcoesItemNota(){
-  const insumoId = document.getElementById("rendInsumo").value;
-  const selNota = document.getElementById("rendNota");
-  // Procura, em todas as notas fiscais, os itens ainda não usados que sejam desse insumo
-  const opcoes = [];
-  db.notasFiscais.forEach(n=>{
-    (n.itens||[]).forEach(it=>{
-      if(it.insumoId===insumoId && !it.lancamentoRendimentoId){
-        opcoes.push({notaId:n.id, itemId:it.id, fornecedor:n.fornecedor, valor:it.valor});
-      }
-    });
-  });
-  selNota.innerHTML = '<option value="">Nenhum / informar valor manual</option>'+opcoes.map(o=>
-    '<option value="'+o.notaId+'::'+o.itemId+'">'+esc(o.fornecedor)+' — R$ '+Number(o.valor).toFixed(2).replace(".",",")+'</option>').join("");
-}
-document.getElementById("rendInsumo").addEventListener("change", atualizarOpcoesItemNota);
-document.getElementById("rendNota").addEventListener("change", (e)=>{
-  if(!e.target.value) return;
-  const [notaId, itemId] = e.target.value.split("::");
-  const nota = db.notasFiscais.find(n=>n.id===notaId);
-  const item = nota ? nota.itens.find(it=>it.id===itemId) : null;
-  if(item) document.getElementById("rendValorCompra").value = item.valor;
-});
 document.getElementById("btnSalvarRendimento").addEventListener("click", ()=>{
   const insumoId = document.getElementById("rendInsumo").value;
   const valorCompra = parseFloat(document.getElementById("rendValorCompra").value)||0;
@@ -812,15 +746,7 @@ document.getElementById("btnSalvarRendimento").addEventListener("click", ()=>{
   const pesoBrutoKg = parseFloat(document.getElementById("rendPesoBruto").value)||null;
   const precoPorKg = parseFloat(document.getElementById("rendPrecoPorKg").value)||null;
   if(!pesoFinalKg || pesoFinalKg<=0){ alert("Informe o peso do rendimento final."); return; }
-  if(!valorCompra){ alert("Informe o valor da compra (ou selecione um item de nota fiscal, ou preencha peso bruto + preço/kg)."); return; }
-  const notaSelecionada = document.getElementById("rendNota").value || null;
-  let notaId = null, itemId = null;
-  if(notaSelecionada){
-    [notaId, itemId] = notaSelecionada.split("::");
-    const nota = db.notasFiscais.find(n=>n.id===notaId);
-    const item = nota ? nota.itens.find(it=>it.id===itemId) : null;
-    if(item) item.lancamentoRendimentoId = "rend_"+Date.now();
-  }
+  if(!valorCompra){ alert("Informe o valor da compra (ou preencha peso bruto + preço/kg)."); return; }
   const pesoFinalG = pesoFinalKg*1000;
   const custoTotal = valorCompra + custoAdicional;
   const custoPorGrama = custoTotal / pesoFinalG;
@@ -832,7 +758,7 @@ document.getElementById("btnSalvarRendimento").addEventListener("click", ()=>{
   db.rendimentos.push({
     id:"rend_"+Date.now(), empresaId:EMPRESA_ID, lojaId:LOJA_ID, insumoId,
     pesoBrutoKg, precoPorKg, valorCompra, custoAdicional, pesoFinalG, custoPorGrama, porcaoReferenciaG: insumo.porcaoReferenciaG,
-    notaFiscalId:notaId, itemNotaFiscalId:itemId, data:new Date().toISOString().slice(0,10)
+    data:new Date().toISOString().slice(0,10)
   });
   db.movimentacoes.push({insumoId, tipo:"rendimento", localDestino:"central", pesoG:pesoFinalG, data:new Date().toISOString()});
   saveDB(db);
