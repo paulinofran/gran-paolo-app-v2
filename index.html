@@ -153,7 +153,7 @@
           <option value="boleto_a_prazo">Boleto / a prazo</option>
         </select>
       </div>
-      <div class="field-group" id="grupoVencimento" style="display:none;"><label>Vencimento</label><input id="campoVencimento" type="date"></div>
+      <div class="field-group" id="grupoVencimento" style="display:none;"><label id="labelVencimento">Vencimento</label><input id="campoVencimento" type="date"></div>
       <div class="field-group" id="grupoInsumo" style="display:none;">
         <label>Vincular a um insumo? (opcional)</label>
         <select id="campoInsumoVinculo"><option value="">Nenhum</option></select>
@@ -523,7 +523,9 @@ function setTipoDocumento(tipo){
 }
 function atualizarVisibilidadeVencimento(){
   const forma = document.getElementById("campoFormaPagamento").value;
-  document.getElementById("grupoVencimento").style.display = forma==="boleto_a_prazo" ? "block" : "none";
+  const ehAPrazo = forma==="boleto_a_prazo" || forma==="cartao_credito";
+  document.getElementById("grupoVencimento").style.display = ehAPrazo ? "block" : "none";
+  document.getElementById("labelVencimento").textContent = forma==="cartao_credito" ? "Vencimento da fatura" : "Vencimento";
 }
 document.getElementById("campoFormaPagamento").addEventListener("change", atualizarVisibilidadeVencimento);
 document.getElementById("btnTipoBoleto").addEventListener("click", ()=>setTipoDocumento("boleto"));
@@ -650,7 +652,7 @@ document.getElementById("btnSalvarConta").addEventListener("click", ()=>{
   const formaPagamento = document.getElementById("campoFormaPagamento").value;
   const linhaDigitavel = document.getElementById("campoLinhaDigitavel").value.trim() || null;
   if(!fornecedor || !valor){ alert("Informe pelo menos fornecedor e valor."); return; }
-  const aPrazo = formaPagamento === "boleto_a_prazo";
+  const aPrazo = formaPagamento === "boleto_a_prazo" || formaPagamento === "cartao_credito";
   if(aPrazo && !document.getElementById("campoVencimento").value){
     alert("Informe a data de vencimento pra contas a prazo."); return;
   }
