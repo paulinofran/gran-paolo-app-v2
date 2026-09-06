@@ -163,6 +163,7 @@
         <button class="ghost small" style="width:100%;margin-top:6px;" id="btnAddItemNota">+ Adicionar item</button>
         <div id="itensNotaPreview" style="margin-top:6px;"></div>
       </div>
+      <div class="field-group"><label>Observação (opcional)</label><input type="text" id="campoObservacao" placeholder="Ex: pagar em 2x, conferir com fornecedor..."></div>
       <button class="primary" style="width:100%;margin-top:12px;" id="btnSalvarConta">Salvar</button>
     </div>
   </section>
@@ -423,6 +424,7 @@ function renderContas(){
     return '<div class="card row">'+
       '<div><p class="item-title">'+esc(c.fornecedor||"(sem fornecedor)")+'</p>'+
       '<p class="item-sub">R$ '+Number(c.valor||0).toFixed(2).replace(".",",")+(detalhe?(" · "+detalhe):"")+'</p>'+
+      (c.observacao ? '<p class="item-sub" style="font-style:italic;">💬 '+esc(c.observacao)+'</p>' : '')+
       (c.linhaDigitavel ? '<button class="small ghost" style="margin-top:4px;padding:3px 8px;" onclick="copiarLinhaDaLista(\''+c.id+'\')">📋 copiar código</button>' : '')+
       '</div>'+
       '<div style="display:flex;flex-direction:column;align-items:end;gap:6px;">'+
@@ -511,6 +513,7 @@ function renderNovaConta(){
     document.getElementById("campoFormaPagamento").value = conta.formaPagamento || "dinheiro";
     document.getElementById("campoVencimento").value = conta.vencimento || "";
     document.getElementById("campoLinhaDigitavel").value = conta.linhaDigitavel || "";
+    document.getElementById("campoObservacao").value = conta.observacao || "";
     if(nota && nota.itens) itensNotaAtual = nota.itens.map(it=>({...it}));
     renderItensNotaPreview();
     atualizarVisibilidadeVencimento();
@@ -522,6 +525,7 @@ function renderNovaConta(){
     document.getElementById("campoValor").value="";
     document.getElementById("campoVencimento").value="";
     document.getElementById("campoLinhaDigitavel").value="";
+    document.getElementById("campoObservacao").value="";
     renderItensNotaPreview();
     setTipoDocumento("boleto");
     document.getElementById("screenTitle").textContent = "Nova conta";
@@ -690,6 +694,7 @@ document.getElementById("btnSalvarConta").addEventListener("click", ()=>{
   const valor = parseFloat(document.getElementById("campoValor").value)||0;
   const formaPagamento = document.getElementById("campoFormaPagamento").value;
   const linhaDigitavel = document.getElementById("campoLinhaDigitavel").value.trim() || null;
+  const observacao = document.getElementById("campoObservacao").value.trim() || null;
   if(!fornecedor || !valor){ alert("Informe pelo menos fornecedor e valor."); return; }
   const aPrazo = formaPagamento === "boleto_a_prazo" || formaPagamento === "cartao_credito";
   if(aPrazo && !document.getElementById("campoVencimento").value){
@@ -705,6 +710,7 @@ document.getElementById("btnSalvarConta").addEventListener("click", ()=>{
     conta.formaPagamento = formaPagamento;
     conta.vencimento = aPrazo ? document.getElementById("campoVencimento").value : null;
     conta.linhaDigitavel = tipoDocumentoAtual==="boleto" ? linhaDigitavel : null;
+    conta.observacao = observacao;
     if(!conta.dataLancamento) conta.dataLancamento = hoje;
     if(conta.status !== "paga" || aPrazo){ conta.status = aPrazo ? "pendente" : "paga"; }
     if(!aPrazo && !conta.dataPagamento) conta.dataPagamento = hoje;
@@ -731,6 +737,7 @@ document.getElementById("btnSalvarConta").addEventListener("click", ()=>{
     id, empresaId:EMPRESA_ID, fornecedor, valor, formaPagamento,
     vencimento: aPrazo ? document.getElementById("campoVencimento").value : null,
     linhaDigitavel: tipoDocumentoAtual==="boleto" ? linhaDigitavel : null,
+    observacao,
     status: aPrazo ? "pendente" : "paga",
     dataPagamento: aPrazo ? null : hoje,
     dataLancamento: hoje
