@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Gran Paolo — Contas e Estoque</title>
+<style>
+  :root{
+    --bg:#FAF6EF; --card:#FFFFFF; --ink:#2B2018; --ink-soft:#6B5E52;
+    --line:#E7DFD3; --accent:#B23A2F; --accent-soft:#F3DAD6;
+    --ok:#3F6B4A; --ok-soft:#E3EEE3; --warn:#8A5A16; --warn-soft:#F6E6C8;
+    --danger:#8A2C22; --danger-soft:#F3D9D4; --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);}
+  #app{max-width:480px;margin:0 auto;padding-bottom:78px;min-height:100vh;}
+  header.top{padding:18px 16px 10px;}
+  header.top h1{font-size:19px;margin:0 0 2px;font-weight:600;}
+  header.top p{font-size:12px;color:var(--ink-soft);margin:0;}
+  .screen{display:none;padding:0 14px 14px;}
+  .screen.active{display:block;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;}
+  .badge.danger{background:var(--danger-soft);color:var(--danger);}
+  .badge.warn{background:var(--warn-soft);color:var(--warn);}
+  .badge.ok{background:var(--ok-soft);color:var(--ok);}
+  h3{font-size:14px;margin:14px 0 8px;color:var(--ink-soft);font-weight:600;text-transform:none;}
+  .item-title{font-size:14px;font-weight:600;margin:0;}
+  .item-sub{font-size:12px;color:var(--ink-soft);margin:2px 0 0;}
+  button{font-family:inherit;font-size:14px;border-radius:10px;border:1px solid var(--line);background:#fff;padding:10px 14px;cursor:pointer;}
+  button.primary{background:var(--accent);color:#fff;border:none;}
+  button.ghost{background:transparent;}
+  button.small{padding:6px 10px;font-size:12px;}
+  input,select{width:100%;font-size:14px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);margin-top:4px;}
+  label{font-size:12px;color:var(--ink-soft);display:block;margin-top:10px;}
+  .field-group{margin-bottom:6px;}
+  .choice-row{display:flex;gap:10px;}
+  .choice-row button{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 8px;}
+  .status-row{display:flex;gap:6px;margin-top:6px;}
+  .status-row button{flex:1;}
+  button.selected{background:var(--accent);color:#fff;border-color:var(--accent);}
+  nav.bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;max-width:480px;margin:0 auto;}
+  nav.bottom button{flex:1;border:none;background:none;border-radius:0;padding:10px 2px 8px;font-size:10px;color:var(--ink-soft);display:flex;flex-direction:column;align-items:center;gap:2px;}
+  nav.bottom button.active{color:var(--accent);}
+  nav.bottom .icon{font-size:18px;}
+  .empty{text-align:center;color:var(--ink-soft);font-size:13px;padding:30px 10px;}
+  .callout{background:var(--accent-soft);color:var(--accent);font-size:12px;padding:10px 12px;border-radius:10px;margin-bottom:10px;}
+  .callout.ok{background:var(--ok-soft);color:var(--ok);}
+  .callout.warn{background:var(--warn-soft);color:var(--warn);}
+  #photoPreview{width:100%;border-radius:10px;margin-top:8px;display:none;max-height:180px;object-fit:cover;}
+  .ocr-status{font-size:12px;color:var(--ink-soft);margin-top:6px;}
+  .divider{border-top:1px solid var(--line);margin:12px 0;}
+  .location-label{font-size:12px;font-weight:600;color:var(--ink-soft);margin:12px 0 6px;}
+  .home-card{display:flex;align-items:center;gap:14px;padding:20px 16px;text-align:left;width:100%;margin-bottom:12px;}
+  .home-card .home-icon{font-size:30px;}
+  .home-card .home-title{font-size:16px;font-weight:600;margin:0;color:var(--ink);}
+  .home-card .home-sub{font-size:12px;color:var(--ink-soft);margin:2px 0 0;}
+  nav.bottom button[data-area]{display:none;}
+  nav.bottom.area-contas button[data-area="contas"]{display:flex;}
+  nav.bottom.area-estoque button[data-area="estoque"]{display:flex;}
+  nav.bottom.area-home{display:none;}
+  .btn-inicio{display:flex;flex-direction:column;align-items:center;gap:2px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <h1 id="screenTitle">Contas a pagar</h1>
+    <p id="screenSubtitle">Gran Paolo Pizzaria · Unidade Centro</p>
+  </header>
+
+  <!-- HOME -->
+  <section class="screen active" id="screen-home">
+    <button class="home-card" id="btnHomeContas">
+      <span class="home-icon">💳</span>
+      <span>
+        <p class="home-title">Contas a Pagar</p>
+        <p class="home-sub">Boletos, notas fiscais e vencimentos</p>
+      </span>
+    </button>
+    <button class="home-card" id="btnHomeEstoque">
+      <span class="home-icon">🧊</span>
+      <span>
+        <p class="home-title">Estoque</p>
+        <p class="home-sub">Rendimento, porções e conferência</p>
+      </span>
+    </button>
+    <div class="card">
+      <label style="margin-top:0;">Backup dos dados</label>
+      <p class="item-sub" style="margin-bottom:8px;">Faça isso <strong>antes</strong> de trocar de versão do app, pra não perder o que já foi lançado.</p>
+      <div style="display:flex;gap:8px;">
+        <button class="ghost small" style="flex:1;" id="btnExportar">⬇️ Exportar backup</button>
+        <button class="ghost small" style="flex:1;" id="btnImportarBtn">⬆️ Importar backup</button>
+      </div>
+      <input type="file" accept="application/json" id="inputImportar" style="display:none;">
+    </div>
+  </section>
+
+  <!-- CONTAS A PAGAR -->
+  <section class="screen" id="screen-contas">
+    <div id="contasSummary" class="callout"></div>
+    <div class="card" style="margin-bottom:10px;">
+      <label style="margin-top:0;">Filtrar por status</label>
+      <div class="status-row">
+        <button class="small selected" id="btnStatusTodas">Todas</button>
+        <button class="small" id="btnStatusPendentes">Pendentes</button>
+        <button class="small" id="btnStatusPagas">Pagas</button>
+      </div>
+      <label>Filtrar por período (data de lançamento)</label>
+      <div style="display:flex;gap:8px;align-items:end;">
+        <div style="flex:1;"><label style="margin-top:0;">De</label><input type="date" id="filtroDe"></div>
+        <div style="flex:1;"><label style="margin-top:0;">Até</label><input type="date" id="filtroAte"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="primary small" style="flex:1;" id="btnAplicarFiltro">Filtrar</button>
+        <button class="ghost small" style="flex:1;" id="btnLimparFiltro">Limpar tudo</button>
+      </div>
+    </div>
+    <div id="contasList"></div>
+  </section>
+
+  <!-- NOVA CONTA -->
+  <section class="screen" id="screen-nova">
+    <div class="choice-row">
+      <button id="btnTipoBoleto" class="selected">📄<span>Boleto</span></button>
+      <button id="btnTipoNota">🧾<span>Nota fiscal</span></button>
+    </div>
+    <div class="card" style="margin-top:12px;">
+      <label>Foto do documento</label>
+      <input type="file" accept="image/*" capture="environment" id="fotoInput">
+      <img id="photoPreview">
+      <p class="ocr-status" id="ocrStatus"></p>
+
+      <div class="field-group" id="grupoLinhaDigitavel" style="display:none;">
+        <label>Linha digitável do boleto (código de barras)</label>
+        <input type="text" id="campoLinhaDigitavel" placeholder="Ex: 34191.79001 01043.510047 91020.150008 1 84410026000" style="font-size:12px;">
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="ghost small" style="flex:1;" id="btnDecodificarLinha">Decodificar valor/vencimento</button>
+          <button class="ghost small" style="flex:1;" id="btnCopiarLinha">Copiar código</button>
+        </div>
+        <p class="ocr-status" id="decodStatus"></p>
+      </div>
+      <div class="field-group"><label>Fornecedor</label><input id="campoFornecedor" placeholder="Nome do fornecedor"></div>
+      <div class="field-group"><label>Valor (R$)</label><input id="campoValor" type="number" step="0.01" placeholder="0,00"></div>
+      <div class="field-group">
+        <label>Forma de pagamento</label>
+        <select id="campoFormaPagamento">
+          <option value="dinheiro">Dinheiro</option>
+          <option value="cartao_debito">Cartão de débito</option>
+          <option value="cartao_credito">Cartão de crédito</option>
+          <option value="pix">PIX</option>
+          <option value="boleto_a_prazo">Boleto / a prazo</option>
+        </select>
+      </div>
+      <div class="field-group" id="grupoVencimento" style="display:none;"><label>Vencimento</label><input id="campoVencimento" type="date"></div>
+      <div class="field-group" id="grupoInsumo" style="display:none;">
+        <label>Vincular a um insumo? (opcional)</label>
+        <select id="campoInsumoVinculo"><option value="">Nenhum</option></select>
+      </div>
+      <button class="primary" style="width:100%;margin-top:12px;" id="btnSalvarConta">Salvar</button>
+    </div>
+  </section>
+
+  <!-- RENDIMENTO -->
+  <section class="screen" id="screen-rendimento">
+    <div class="callout ok">Entra automaticamente no estoque Central, em peso</div>
+    <div class="card">
+      <label style="margin-top:0;">Insumo</label>
+      <select id="rendInsumo"></select>
+
+      <h3 style="margin-top:16px;">1. Entrada bruta (o que foi pra produção)</h3>
+      <label>Nota fiscal de origem (opcional, já traz o valor)</label>
+      <select id="rendNota"><option value="">Nenhuma / informar valor manual</option></select>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;"><label>Peso bruto (kg)</label><input type="number" step="0.001" id="rendPesoBruto" placeholder="Ex: 15"></div>
+        <div style="flex:1;"><label>Preço por kg (R$)</label><input type="number" step="0.01" id="rendPrecoPorKg" placeholder="Ex: 16.62"></div>
+      </div>
+      <label>Valor total da compra (R$)</label>
+      <input type="number" step="0.01" id="rendValorCompra" placeholder="Calculado automático, ou digite direto">
+
+      <h3>2. Rendimento (depois de pronto)</h3>
+      <label>Custo adicional do lote (tempero, gás, embalagem etc — R$)</label>
+      <input type="number" step="0.01" id="rendCustoAdicional" placeholder="Ex: 15.60">
+      <label>Peso do rendimento final, já pronto pra uso (kg)</label>
+      <input type="number" step="0.001" id="rendPesoFinal" placeholder="Ex: 10.920">
+
+      <div id="rendPreviewCusto" class="callout" style="display:none;margin-top:10px;"></div>
+
+      <button class="primary" style="width:100%;margin-top:12px;" id="btnSalvarRendimento">Salvar rendimento</button>
+    </div>
+    <div id="rendimentosRecentes"></div>
+  </section>
+
+  <!-- ESTOQUE -->
+  <section class="screen" id="screen-estoque">
+    <div class="location-label">Produção (linha de pizza)</div>
+    <div id="estoqueProducao"></div>
+    <div class="location-label">Central (freezer / dispensa)</div>
+    <div id="estoqueCentral"></div>
+    <div class="divider"></div>
+    <button class="ghost" style="width:100%;" id="btnNovoInsumo">+ Cadastrar novo insumo</button>
+  </section>
+
+  <!-- PRODUTOS (ficha técnica) -->
+  <section class="screen" id="screen-produtos">
+    <div class="callout">Ficha técnica provisória — será substituída pelo arquivo que o Fran vai enviar.</div>
+    <div id="produtosList"></div>
+    <div class="divider"></div>
+    <div class="card">
+      <label style="margin-top:0;">Novo produto</label>
+      <input type="text" id="novoProdNome" placeholder="Nome do produto">
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <select id="novoProdInsumo" style="flex:1;"></select>
+        <input type="number" id="novoProdGramas" placeholder="Gramas" style="width:90px;">
+      </div>
+      <button class="ghost small" style="width:100%;margin-top:8px;" id="btnAddItemProduto">+ Adicionar insumo à ficha</button>
+      <div id="novoProdItensPreview" style="margin-top:8px;"></div>
+      <button class="primary" style="width:100%;margin-top:10px;" id="btnSalvarProduto">Salvar produto</button>
+    </div>
+  </section>
+
+  <!-- VENDA (lançamento manual) -->
+  <section class="screen" id="screen-venda">
+    <div class="callout">Lançamento manual — enquanto não integra com PDV, registre aqui o que vendeu no dia.</div>
+    <div class="card">
+      <label style="margin-top:0;">Data da venda</label>
+      <input type="date" id="vendaData">
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <select id="vendaProduto" style="flex:1;"></select>
+        <input type="number" id="vendaQtd" placeholder="Qtd" style="width:70px;" value="1">
+      </div>
+      <button class="ghost small" style="width:100%;margin-top:8px;" id="btnAddLinhaVenda">+ Adicionar à venda do dia</button>
+      <div id="vendaLinhasPreview" style="margin-top:8px;"></div>
+      <button class="primary" style="width:100%;margin-top:10px;" id="btnRegistrarVenda">Registrar venda e debitar estoque</button>
+    </div>
+    <div id="vendasRecentes"></div>
+  </section>
+
+  <!-- CONFERÊNCIA -->
+  <section class="screen" id="screen-conferencia">
+    <div class="callout">Ciclo de conferência: <span id="cicloDias">3</span> dias. Confira o Produção e ajuste se necessário.</div>
+    <div id="conferenciaLista"></div>
+  </section>
+
+</div>
+
+<nav class="bottom" id="navBottom">
+  <button data-screen="home" class="btn-inicio"><span class="icon">🏠</span>Início</button>
+  <button data-screen="contas" data-area="contas"><span class="icon">💳</span>Contas</button>
+  <button data-screen="nova" data-area="contas"><span class="icon">📷</span>Nova conta</button>
+  <button data-screen="rendimento" data-area="estoque"><span class="icon">📦</span>Rendimento</button>
+  <button data-screen="estoque" data-area="estoque"><span class="icon">🧊</span>Estoque</button>
+  <button data-screen="produtos" data-area="estoque"><span class="icon">🍕</span>Produtos</button>
+  <button data-screen="venda" data-area="estoque"><span class="icon">🧾</span>Venda</button>
+  <button data-screen="conferencia" data-area="estoque"><span class="icon">✅</span>Conferência</button>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+<script>
+/* ---------- Persistência ---------- */
+const DB_KEY = "granpaolo_app_v1";
+const EMPRESA_ID = "gran-paolo";
+const LOJA_ID = "centro";
+
+function loadDB(){
+  const raw = localStorage.getItem(DB_KEY);
+  if(raw){
+    const parsed = JSON.parse(raw);
+    if(!parsed.produtos) parsed.produtos = [];
+    if(!parsed.vendasManual) parsed.vendasManual = [];
+    return parsed;
+  }
+  const seed = {
+    insumos: [
+      {id:"frango", nome:"Frango", porcaoReferenciaG:70, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"mussarela_g", nome:"Mussarela grande", porcaoReferenciaG:200, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:2000},
+      {id:"mussarela_p", nome:"Mussarela pequena", porcaoReferenciaG:100, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000}
+    ],
+    produtos: [
+      {id:"prod_pg_frango", nome:"Pizza Grande de Frango (exemplo)", itens:[{insumoId:"frango", gramas:140}]},
+      {id:"prod_pp_frango", nome:"Pizza Pequena de Frango, 1 sabor (exemplo)", itens:[{insumoId:"frango", gramas:70}]},
+      {id:"prod_pp_frango_meio", nome:"Metade Pequena de Frango, 2 sabores (exemplo)", itens:[{insumoId:"frango", gramas:35}]},
+      {id:"prod_pg_mussarela", nome:"Pizza Grande de Mussarela (exemplo)", itens:[{insumoId:"mussarela_g", gramas:200}]},
+      {id:"prod_pp_mussarela", nome:"Pizza Pequena de Mussarela (exemplo)", itens:[{insumoId:"mussarela_p", gramas:100}]}
+    ],
+    vendasManual: [],
+    contasPagar: [],
+    notasFiscais: [],
+    rendimentos: [],
+    movimentacoes: [],
+    cicloConferenciaDias: 3
+  };
+  localStorage.setItem(DB_KEY, JSON.stringify(seed));
+  return seed;
+}
+function saveDB(db){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+let db = loadDB();
+
+/* ---------- Navegação ---------- */
+const titles = {
+  home:["Gran Paolo","Escolha uma área"],
+  contas:["Contas a pagar","Gran Paolo Pizzaria · Unidade Centro"],
+  nova:["Nova conta","O que você tirou foto?"],
+  rendimento:["Registrar rendimento","Entra automaticamente no estoque Central"],
+  estoque:["Estoque","Gran Paolo · Unidade Centro"],
+  produtos:["Produtos","Ficha técnica de consumo por produto"],
+  venda:["Registrar venda","Lançamento manual, debita a Produção"],
+  conferencia:["Fechamento e conferência","Confira o que sobrou fisicamente"]
+};
+const screenToArea = {home:"home", contas:"contas", nova:"contas", rendimento:"estoque", estoque:"estoque", produtos:"estoque", venda:"estoque", conferencia:"estoque"};
+function showScreen(name){
+  if(name !== "nova") editandoId = null;
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("screen-"+name).classList.add("active");
+  const area = screenToArea[name] || "home";
+  const nav = document.getElementById("navBottom");
+  nav.classList.remove("area-contas","area-estoque","area-home");
+  nav.classList.add("area-"+area);
+  document.querySelectorAll("nav.bottom button[data-screen]").forEach(b=>b.classList.toggle("active", b.dataset.screen===name));
+  document.getElementById("screenTitle").textContent = titles[name][0];
+  document.getElementById("screenSubtitle").textContent = titles[name][1];
+  if(name==="contas") renderContas();
+  if(name==="nova") renderNovaConta();
+  if(name==="rendimento") renderRendimento();
+  if(name==="estoque") renderEstoque();
+  if(name==="produtos") renderProdutos();
+  if(name==="venda") renderVenda();
+  if(name==="conferencia") renderConferencia();
+}
+document.querySelectorAll("nav.bottom button[data-screen]").forEach(b=>{
+  b.addEventListener("click", ()=>showScreen(b.dataset.screen));
+});
+document.getElementById("btnHomeContas").addEventListener("click", ()=>showScreen("contas"));
+document.getElementById("btnHomeEstoque").addEventListener("click", ()=>showScreen("rendimento"));
+
+/* ---------- Backup: exportar / importar ---------- */
+document.getElementById("btnExportar").addEventListener("click", ()=>{
+  const dataStr = JSON.stringify(db, null, 2);
+  const blob = new Blob([dataStr], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const hoje = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = "backup-gran-paolo-"+hoje+".json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+document.getElementById("btnImportarBtn").addEventListener("click", ()=>{
+  document.getElementById("inputImportar").click();
+});
+document.getElementById("inputImportar").addEventListener("change", (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const novo = JSON.parse(ev.target.result);
+      if(!confirm("Isso vai SUBSTITUIR todos os dados atuais do app pelos dados do backup. Confirmar?")) return;
+      db = novo;
+      saveDB(db);
+      alert("Backup importado com sucesso!");
+      showScreen("home");
+    }catch(err){
+      alert("Não consegui ler esse arquivo. Confirme se é um backup válido gerado pelo próprio app.");
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* ---------- Contas a pagar ---------- */
+let filtroDeVal = null, filtroAteVal = null, filtroStatusVal = "todas";
+function renderContas(){
+  document.getElementById("filtroDe").value = filtroDeVal || "";
+  document.getElementById("filtroAte").value = filtroAteVal || "";
+  document.getElementById("btnStatusTodas").classList.toggle("selected", filtroStatusVal==="todas");
+  document.getElementById("btnStatusPendentes").classList.toggle("selected", filtroStatusVal==="pendentes");
+  document.getElementById("btnStatusPagas").classList.toggle("selected", filtroStatusVal==="pagas");
+  const pend = db.contasPagar.filter(c=>c.status!=="paga");
+  const totalPendente = pend.reduce((s,c)=>s+Number(c.valor||0),0);
+  const hoje = new Date().toISOString().slice(0,10);
+  const totalAtrasado = pend.filter(c=>c.vencimento && c.vencimento < hoje).reduce((s,c)=>s+Number(c.valor||0),0);
+  const mesAtual = hoje.slice(0,7);
+  const pagasMes = db.contasPagar.filter(c=>c.status==="paga" && c.dataPagamento && c.dataPagamento.slice(0,7)===mesAtual);
+  const totalPagoMes = pagasMes.reduce((s,c)=>s+Number(c.valor||0),0);
+  document.getElementById("contasSummary").innerHTML =
+    pend.length+" pendente(s) · <strong>R$ "+totalPendente.toFixed(2).replace(".",",")+"</strong> a pagar no total"+
+    (totalAtrasado>0 ? (' <span style="color:var(--danger);">(R$ '+totalAtrasado.toFixed(2).replace(".",",")+" já atrasado)</span>") : "")+
+    '<br>'+pagasMes.length+' paga(s) este mês · <strong>R$ '+totalPagoMes.toFixed(2).replace(".",",")+'</strong>';
+
+  let contas = db.contasPagar.slice();
+  if(filtroStatusVal === "pendentes") contas = contas.filter(c=>c.status!=="paga");
+  if(filtroStatusVal === "pagas") contas = contas.filter(c=>c.status==="paga");
+  if(filtroDeVal) contas = contas.filter(c=>dataRef(c) >= filtroDeVal);
+  if(filtroAteVal) contas = contas.filter(c=>dataRef(c) <= filtroAteVal);
+
+  const list = document.getElementById("contasList");
+  if(contas.length===0){
+    list.innerHTML = '<div class="empty">'+(db.contasPagar.length===0 ? 'Nenhuma conta lançada ainda.<br>Toque em "Nova conta" pra começar.' : 'Nenhuma conta encontrada com esse filtro.')+'</div>';
+    return;
+  }
+  list.innerHTML = contas.slice().reverse().map(c=>{
+    let cls="ok", label="em dia";
+    if(c.status==="paga"){ cls="ok"; label="paga"; }
+    else if(c.vencimento && c.vencimento < hoje){ cls="danger"; label="atrasada"; }
+    else if(c.vencimento === hoje){ cls="warn"; label="vence hoje"; }
+    const formaLabel = {dinheiro:"Dinheiro",cartao_debito:"Cartão débito",cartao_credito:"Cartão crédito",pix:"PIX",boleto_a_prazo:"A prazo"}[c.formaPagamento] || "";
+    const detalhe = c.status==="paga" ? (formaLabel+(c.dataPagamento?(" · pago "+c.dataPagamento):"")) : (c.vencimento?("vence "+c.vencimento):formaLabel);
+    return '<div class="card row">'+
+      '<div><p class="item-title">'+esc(c.fornecedor||"(sem fornecedor)")+'</p>'+
+      '<p class="item-sub">R$ '+Number(c.valor||0).toFixed(2).replace(".",",")+(detalhe?(" · "+detalhe):"")+'</p>'+
+      (c.linhaDigitavel ? '<button class="small ghost" style="margin-top:4px;padding:3px 8px;" onclick="copiarLinhaDaLista(\''+c.id+'\')">📋 copiar código</button>' : '')+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;align-items:end;gap:6px;">'+
+      '<span class="badge '+cls+'">'+label+'</span>'+
+      '<div style="display:flex;gap:4px;">'+
+      '<button class="small ghost" onclick="editarConta(\''+c.id+'\')">editar</button>'+
+      '<button class="small ghost" onclick="excluirConta(\''+c.id+'\')">excluir</button>'+
+      '</div>'+
+      (c.status!=="paga" ? '<button class="small" onclick="marcarPaga(\''+c.id+'\')">marcar paga</button>' : '')+
+      '</div></div>';
+  }).join("");
+}
+function marcarPaga(id){
+  const c = db.contasPagar.find(x=>x.id===id);
+  if(!c) return;
+  const opcoes = "1-Dinheiro  2-Cartão débito  3-Cartão crédito  4-PIX";
+  const escolha = prompt("Pago com qual forma de pagamento?\n"+opcoes, "1");
+  const mapa = {"1":"dinheiro","2":"cartao_debito","3":"cartao_credito","4":"pix"};
+  c.formaPagamento = mapa[escolha] || c.formaPagamento;
+  c.status="paga";
+  c.dataPagamento = new Date().toISOString().slice(0,10);
+  saveDB(db); renderContas();
+}
+function editarConta(id){
+  editandoId = id;
+  showScreen("nova");
+}
+function copiarLinhaDaLista(id){
+  const c = db.contasPagar.find(x=>x.id===id);
+  if(!c || !c.linhaDigitavel) return;
+  navigator.clipboard.writeText(c.linhaDigitavel).then(()=>{
+    alert("Código copiado! Já pode colar no app do banco pra pagar de onde estiver.");
+  }).catch(()=>{
+    alert("Não consegui copiar automaticamente. Código: "+c.linhaDigitavel);
+  });
+}
+function excluirConta(id){
+  if(!confirm("Tem certeza que quer excluir essa conta? Essa ação não pode ser desfeita.")) return;
+  db.contasPagar = db.contasPagar.filter(c=>c.id!==id);
+  db.notasFiscais = db.notasFiscais.filter(n=>n.id!==id);
+  saveDB(db);
+  renderContas();
+}
+function dataRef(c){
+  return c.dataLancamento || c.vencimento || c.dataPagamento || "";
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
+document.getElementById("btnAplicarFiltro").addEventListener("click", ()=>{
+  filtroDeVal = document.getElementById("filtroDe").value || null;
+  filtroAteVal = document.getElementById("filtroAte").value || null;
+  renderContas();
+});
+document.getElementById("btnLimparFiltro").addEventListener("click", ()=>{
+  filtroDeVal = null; filtroAteVal = null; filtroStatusVal = "todas";
+  renderContas();
+});
+function setFiltroStatus(valor){
+  filtroStatusVal = valor;
+  renderContas();
+}
+document.getElementById("btnStatusTodas").addEventListener("click", ()=>setFiltroStatus("todas"));
+document.getElementById("btnStatusPendentes").addEventListener("click", ()=>setFiltroStatus("pendentes"));
+document.getElementById("btnStatusPagas").addEventListener("click", ()=>setFiltroStatus("pagas"));
+
+/* ---------- Nova conta (com OCR) ---------- */
+let tipoDocumentoAtual = "boleto";
+let editandoId = null;
+function renderNovaConta(){
+  document.getElementById("photoPreview").style.display="none";
+  document.getElementById("ocrStatus").textContent="";
+  document.getElementById("fotoInput").value="";
+  document.getElementById("decodStatus").textContent="";
+  const sel = document.getElementById("campoInsumoVinculo");
+  sel.innerHTML = '<option value="">Nenhum</option>'+db.insumos.map(i=>'<option value="'+i.id+'">'+esc(i.nome)+'</option>').join("");
+
+  if(editandoId){
+    const conta = db.contasPagar.find(c=>c.id===editandoId);
+    if(!conta){ editandoId=null; return renderNovaConta(); }
+    const nota = db.notasFiscais.find(n=>n.id===editandoId);
+    setTipoDocumento(nota ? "nota_fiscal" : "boleto");
+    document.getElementById("campoFornecedor").value = conta.fornecedor || "";
+    document.getElementById("campoValor").value = conta.valor || "";
+    document.getElementById("campoFormaPagamento").value = conta.formaPagamento || "dinheiro";
+    document.getElementById("campoVencimento").value = conta.vencimento || "";
+    document.getElementById("campoLinhaDigitavel").value = conta.linhaDigitavel || "";
+    if(nota) document.getElementById("campoInsumoVinculo").value = nota.insumoId || "";
+    atualizarVisibilidadeVencimento();
+    document.getElementById("screenTitle").textContent = "Editar conta";
+    document.getElementById("screenSubtitle").textContent = "Alterando lançamento existente";
+    document.getElementById("btnSalvarConta").textContent = "Salvar alterações";
+  } else {
+    document.getElementById("campoFornecedor").value="";
+    document.getElementById("campoValor").value="";
+    document.getElementById("campoVencimento").value="";
+    document.getElementById("campoLinhaDigitavel").value="";
+    setTipoDocumento("boleto");
+    document.getElementById("screenTitle").textContent = "Nova conta";
+    document.getElementById("screenSubtitle").textContent = "O que você tirou foto?";
+    document.getElementById("btnSalvarConta").textContent = "Salvar";
+  }
+}
+function setTipoDocumento(tipo){
+  tipoDocumentoAtual = tipo;
+  document.getElementById("btnTipoBoleto").classList.toggle("selected", tipo==="boleto");
+  document.getElementById("btnTipoNota").classList.toggle("selected", tipo==="nota_fiscal");
+  document.getElementById("grupoInsumo").style.display = tipo==="nota_fiscal" ? "block":"none";
+  document.getElementById("grupoLinhaDigitavel").style.display = tipo==="boleto" ? "block":"none";
+  document.getElementById("campoFormaPagamento").value = tipo==="boleto" ? "boleto_a_prazo" : "dinheiro";
+  atualizarVisibilidadeVencimento();
+}
+function atualizarVisibilidadeVencimento(){
+  const forma = document.getElementById("campoFormaPagamento").value;
+  document.getElementById("grupoVencimento").style.display = forma==="boleto_a_prazo" ? "block" : "none";
+}
+document.getElementById("campoFormaPagamento").addEventListener("change", atualizarVisibilidadeVencimento);
+document.getElementById("btnTipoBoleto").addEventListener("click", ()=>setTipoDocumento("boleto"));
+document.getElementById("btnTipoNota").addEventListener("click", ()=>setTipoDocumento("nota_fiscal"));
+
+/* ---------- Linha digitável do boleto (decodifica valor e vencimento de verdade) ---------- */
+function limparDigitos(s){ return (s||"").replace(/\D/g,""); }
+function decodificarLinhaDigitavel(linhaBruta){
+  const digitos = limparDigitos(linhaBruta);
+  // Linha digitável de boleto bancário comum tem 47 dígitos (48 é boleto de arrecadação/concessionária, não decodifica valor aqui)
+  if(digitos.length !== 47){
+    return {ok:false, motivo:"O código precisa ter 47 números (contando só os dígitos, sem pontos/espaços). Encontrei "+digitos.length+"."};
+  }
+  const banco = digitos.slice(0,3);
+  const campo5 = digitos.slice(33,47); // 4 dígitos fator vencimento + 10 dígitos valor
+  const fatorVencimento = parseInt(campo5.slice(0,4));
+  const valorCentavos = parseInt(campo5.slice(4,14));
+  const valor = valorCentavos/100;
+  if(fatorVencimento === 0){
+    return {ok:true, banco, valor, vencimento:null, aviso:"Fator de vencimento zerado — este boleto não tem vencimento definido no código (comum em boletos sem registro de data)."};
+  }
+  // A partir de 22/02/2025 a Febraban reiniciou o fator de vencimento em 1000 (nova contagem, Resolução Febraban)
+  const baseNova = new Date(2025,1,22); // mês 1 = fevereiro
+  let vencimentoDate;
+  if(fatorVencimento >= 1000){
+    vencimentoDate = new Date(baseNova);
+    vencimentoDate.setDate(vencimentoDate.getDate() + (fatorVencimento - 1000));
+  } else {
+    // fator abaixo de 1000: só ocorreria em boleto muito antigo, contagem antiga (base 07/10/1997) — caso raro hoje em dia
+    const baseAntiga = new Date(1997,9,7);
+    vencimentoDate = new Date(baseAntiga);
+    vencimentoDate.setDate(vencimentoDate.getDate() + fatorVencimento);
+  }
+  const vencimento = vencimentoDate.toISOString().slice(0,10);
+  return {ok:true, banco, valor, vencimento};
+}
+function tentarExtrairLinhaDigitavel(text){
+  // Procura uma sequência de dígitos (ignorando pontos/espaços) com tamanho de linha digitável (47) dentro do texto do OCR
+  const candidatos = text.match(/[\d\.\s]{40,70}/g) || [];
+  for(const c of candidatos){
+    const d = limparDigitos(c);
+    if(d.length === 47) return c.trim();
+  }
+  return null;
+}
+document.getElementById("btnDecodificarLinha").addEventListener("click", ()=>{
+  const linha = document.getElementById("campoLinhaDigitavel").value;
+  const status = document.getElementById("decodStatus");
+  const res = decodificarLinhaDigitavel(linha);
+  if(!res.ok){ status.textContent = res.motivo; status.style.color="var(--danger)"; return; }
+  status.style.color="var(--ok)";
+  document.getElementById("campoValor").value = res.valor.toFixed(2);
+  if(res.vencimento) document.getElementById("campoVencimento").value = res.vencimento;
+  status.textContent = "Decodificado! Valor: R$ "+res.valor.toFixed(2).replace(".",",")+
+    (res.vencimento?(" · Vencimento: "+res.vencimento):"")+(res.aviso?(" · "+res.aviso):"");
+});
+document.getElementById("btnCopiarLinha").addEventListener("click", ()=>{
+  const linha = document.getElementById("campoLinhaDigitavel").value;
+  if(!linha){ alert("Não há código pra copiar ainda."); return; }
+  navigator.clipboard.writeText(linha).then(()=>{
+    alert("Código copiado! Já pode colar no app do banco pra pagar de onde estiver.");
+  }).catch(()=>{
+    alert("Não consegui copiar automaticamente. Selecione o texto do campo manualmente.");
+  });
+});
+
+document.getElementById("fotoInput").addEventListener("change", async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  const img = document.getElementById("photoPreview");
+  img.src = url; img.style.display="block";
+  const status = document.getElementById("ocrStatus");
+  status.textContent = "Lendo o documento (OCR)...";
+  try{
+    const result = await Tesseract.recognize(file, "por");
+    const text = result.data.text || "";
+
+    let decodOk = false;
+    if(tipoDocumentoAtual === "boleto"){
+      const linhaEncontrada = tentarExtrairLinhaDigitavel(text);
+      if(linhaEncontrada){
+        document.getElementById("campoLinhaDigitavel").value = linhaEncontrada;
+        const res = decodificarLinhaDigitavel(linhaEncontrada);
+        if(res.ok){
+          document.getElementById("campoValor").value = res.valor.toFixed(2);
+          if(res.vencimento) document.getElementById("campoVencimento").value = res.vencimento;
+          document.getElementById("decodStatus").textContent = "Código de barras encontrado e decodificado automaticamente!";
+          document.getElementById("decodStatus").style.color = "var(--ok)";
+          decodOk = true;
+        }
+      }
+    }
+
+    if(decodOk){
+      status.textContent = "Leitura concluída com o código de barras — confira os campos abaixo.";
+    } else {
+      // Fallback: tenta achar valor/data soltos no texto (menos confiável, mas melhor que nada)
+      const valorMatch = text.match(/(\d{1,3}(?:\.\d{3})*,\d{2})/);
+      if(valorMatch){
+        document.getElementById("campoValor").value = valorMatch[1].replace(/\./g,"").replace(",",".");
+      }
+      const dataMatch = text.match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+      if(dataMatch){
+        document.getElementById("campoVencimento").value = dataMatch[3]+"-"+dataMatch[2]+"-"+dataMatch[1];
+      }
+      status.textContent = tipoDocumentoAtual==="boleto"
+        ? "Não achei o código de barras automaticamente. Confira os campos, ou digite/cole a linha digitável manualmente acima e toque em Decodificar."
+        : "Leitura concluída — confira os campos abaixo (nota fiscal é mais difícil de ler automaticamente).";
+    }
+
+    const linhasTexto = text.split("\n").map(l=>l.trim()).filter(l=>l.length>4);
+    if(linhasTexto[0] && !document.getElementById("campoFornecedor").value){
+      document.getElementById("campoFornecedor").value = linhasTexto[0].slice(0,60);
+    }
+  }catch(err){
+    status.textContent = "Não consegui ler automaticamente. Preencha manualmente, ou digite a linha digitável acima e toque em Decodificar.";
+  }
+});
+
+document.getElementById("btnSalvarConta").addEventListener("click", ()=>{
+  const fornecedor = document.getElementById("campoFornecedor").value.trim();
+  const valor = parseFloat(document.getElementById("campoValor").value)||0;
+  const formaPagamento = document.getElementById("campoFormaPagamento").value;
+  const linhaDigitavel = document.getElementById("campoLinhaDigitavel").value.trim() || null;
+  if(!fornecedor || !valor){ alert("Informe pelo menos fornecedor e valor."); return; }
+  const aPrazo = formaPagamento === "boleto_a_prazo";
+  if(aPrazo && !document.getElementById("campoVencimento").value){
+    alert("Informe a data de vencimento pra contas a prazo."); return;
+  }
+  const hoje = new Date().toISOString().slice(0,10);
+
+  if(editandoId){
+    // Atualiza conta existente
+    const conta = db.contasPagar.find(c=>c.id===editandoId);
+    conta.fornecedor = fornecedor;
+    conta.valor = valor;
+    conta.formaPagamento = formaPagamento;
+    conta.vencimento = aPrazo ? document.getElementById("campoVencimento").value : null;
+    conta.linhaDigitavel = tipoDocumentoAtual==="boleto" ? linhaDigitavel : null;
+    if(!conta.dataLancamento) conta.dataLancamento = hoje;
+    if(conta.status !== "paga" || aPrazo){ conta.status = aPrazo ? "pendente" : "paga"; }
+    if(!aPrazo && !conta.dataPagamento) conta.dataPagamento = hoje;
+
+    const nota = db.notasFiscais.find(n=>n.id===editandoId);
+    if(tipoDocumentoAtual==="nota_fiscal"){
+      const insumoId = document.getElementById("campoInsumoVinculo").value || null;
+      if(nota){
+        nota.fornecedor = fornecedor; nota.valor = valor; nota.formaPagamento = formaPagamento; nota.insumoId = insumoId;
+      } else {
+        db.notasFiscais.push({id:editandoId, empresaId:EMPRESA_ID, fornecedor, valor, formaPagamento, dataEmissao:hoje, insumoId, lancamentoRendimentoId:null});
+      }
+    } else if(nota){
+      db.notasFiscais = db.notasFiscais.filter(n=>n.id!==editandoId);
+    }
+    editandoId = null;
+    saveDB(db);
+    showScreen("contas");
+    return;
+  }
+
+  const id = "doc_"+Date.now();
+  // Toda conta (boleto ou nota fiscal) entra em contasPagar, com status conforme forma de pagamento
+  db.contasPagar.push({
+    id, empresaId:EMPRESA_ID, fornecedor, valor, formaPagamento,
+    vencimento: aPrazo ? document.getElementById("campoVencimento").value : null,
+    linhaDigitavel: tipoDocumentoAtual==="boleto" ? linhaDigitavel : null,
+    status: aPrazo ? "pendente" : "paga",
+    dataPagamento: aPrazo ? null : hoje,
+    dataLancamento: hoje
+  });
+
+  // Se for nota fiscal, também registra separadamente pra vínculo com insumo/custo
+  if(tipoDocumentoAtual==="nota_fiscal"){
+    const insumoId = document.getElementById("campoInsumoVinculo").value || null;
+    db.notasFiscais.push({
+      id, empresaId:EMPRESA_ID, fornecedor, valor, formaPagamento,
+      dataEmissao: hoje, insumoId, lancamentoRendimentoId:null
+    });
+  }
+  saveDB(db);
+  showScreen("contas");
+});
+
+/* ---------- Helpers de peso ---------- */
+function formatPeso(g){
+  if(g >= 1000) return (g/1000).toFixed(3).replace(".",",")+" kg";
+  return Math.round(g)+" g";
+}
+
+/* ---------- Rendimento ---------- */
+function renderRendimento(){
+  const selInsumo = document.getElementById("rendInsumo");
+  selInsumo.innerHTML = db.insumos.map(i=>'<option value="'+i.id+'">'+esc(i.nome)+' (ref: '+i.porcaoReferenciaG+'g)</option>').join("");
+  const selNota = document.getElementById("rendNota");
+  const notasLivres = db.notasFiscais.filter(n=>!n.lancamentoRendimentoId);
+  selNota.innerHTML = '<option value="">Nenhuma / informar valor manual</option>'+notasLivres.map(n=>
+    '<option value="'+n.id+'">'+esc(n.fornecedor)+' — R$ '+Number(n.valor).toFixed(2).replace(".",",")+'</option>').join("");
+  document.getElementById("rendValorCompra").value="";
+  document.getElementById("rendCustoAdicional").value="";
+  document.getElementById("rendPesoFinal").value="";
+  document.getElementById("rendPesoBruto").value="";
+  document.getElementById("rendPrecoPorKg").value="";
+  document.getElementById("rendPreviewCusto").style.display="none";
+
+  const rec = db.rendimentos.slice().reverse().slice(0,5);
+  document.getElementById("rendimentosRecentes").innerHTML = rec.length ?
+    "<h3>Últimos lançamentos</h3>"+rec.map(r=>{
+      const insumo = db.insumos.find(i=>i.id===r.insumoId);
+      const rendPct = r.pesoBrutoKg ? (" · rendimento "+((r.pesoFinalG/1000)/r.pesoBrutoKg*100).toFixed(1).replace(".",",")+"%") : "";
+      return '<div class="card"><p class="item-title">'+esc(insumo?insumo.nome:r.insumoId)+' — '+formatPeso(r.pesoFinalG)+'</p>'+
+        '<p class="item-sub">R$ '+r.custoPorGrama.toFixed(4).replace(".",",")+" / g (R$ "+(r.custoPorGrama*(r.porcaoReferenciaG||0)).toFixed(2).replace(".",",")+" / porção de "+(r.porcaoReferenciaG||"?")+"g)"+rendPct+" · "+r.data+'</p></div>';
+    }).join("") : "";
+}
+document.getElementById("rendNota").addEventListener("change", (e)=>{
+  const nota = db.notasFiscais.find(n=>n.id===e.target.value);
+  if(nota) document.getElementById("rendValorCompra").value = nota.valor;
+});
+document.getElementById("btnSalvarRendimento").addEventListener("click", ()=>{
+  const insumoId = document.getElementById("rendInsumo").value;
+  const valorCompra = parseFloat(document.getElementById("rendValorCompra").value)||0;
+  const custoAdicional = parseFloat(document.getElementById("rendCustoAdicional").value)||0;
+  const pesoFinalKg = parseFloat(document.getElementById("rendPesoFinal").value);
+  const pesoBrutoKg = parseFloat(document.getElementById("rendPesoBruto").value)||null;
+  const precoPorKg = parseFloat(document.getElementById("rendPrecoPorKg").value)||null;
+  if(!pesoFinalKg || pesoFinalKg<=0){ alert("Informe o peso do rendimento final."); return; }
+  if(!valorCompra){ alert("Informe o valor da compra (ou selecione uma nota fiscal, ou preencha peso bruto + preço/kg)."); return; }
+  const notaId = document.getElementById("rendNota").value || null;
+  if(notaId){
+    const nota = db.notasFiscais.find(n=>n.id===notaId);
+    if(nota) nota.lancamentoRendimentoId = "rend_"+Date.now();
+  }
+  const pesoFinalG = pesoFinalKg*1000;
+  const custoTotal = valorCompra + custoAdicional;
+  const custoPorGrama = custoTotal / pesoFinalG;
+
+  const insumo = db.insumos.find(i=>i.id===insumoId);
+  insumo.saldoCentralG += pesoFinalG;
+  insumo.custoPorGrama = custoPorGrama; // atualiza sempre com o custo do lote mais recente
+
+  db.rendimentos.push({
+    id:"rend_"+Date.now(), empresaId:EMPRESA_ID, lojaId:LOJA_ID, insumoId,
+    pesoBrutoKg, precoPorKg, valorCompra, custoAdicional, pesoFinalG, custoPorGrama, porcaoReferenciaG: insumo.porcaoReferenciaG,
+    notaFiscalId:notaId, data:new Date().toISOString().slice(0,10)
+  });
+  db.movimentacoes.push({insumoId, tipo:"rendimento", localDestino:"central", pesoG:pesoFinalG, data:new Date().toISOString()});
+  saveDB(db);
+  renderRendimento();
+  let msg = "Rendimento salvo! "+formatPeso(pesoFinalG)+" entraram no estoque Central.\nCusto: R$ "+custoPorGrama.toFixed(4).replace(".",",")+" por grama (R$ "+(custoPorGrama*insumo.porcaoReferenciaG).toFixed(2).replace(".",",")+" por porção de "+insumo.porcaoReferenciaG+"g).";
+  if(pesoBrutoKg) msg += "\nRendimento: "+(pesoFinalKg/pesoBrutoKg*100).toFixed(1).replace(".",",")+"% do peso bruto.";
+  alert(msg);
+});
+["rendValorCompra","rendCustoAdicional","rendPesoFinal","rendPesoBruto","rendPrecoPorKg"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", atualizarPreviewCusto);
+});
+document.getElementById("rendPesoBruto").addEventListener("input", calcularValorCompraAutomatico);
+document.getElementById("rendPrecoPorKg").addEventListener("input", calcularValorCompraAutomatico);
+function calcularValorCompraAutomatico(){
+  const pesoBruto = parseFloat(document.getElementById("rendPesoBruto").value)||0;
+  const precoPorKg = parseFloat(document.getElementById("rendPrecoPorKg").value)||0;
+  if(pesoBruto>0 && precoPorKg>0){
+    document.getElementById("rendValorCompra").value = (pesoBruto*precoPorKg).toFixed(2);
+  }
+}
+function atualizarPreviewCusto(){
+  const valorCompra = parseFloat(document.getElementById("rendValorCompra").value)||0;
+  const custoAdicional = parseFloat(document.getElementById("rendCustoAdicional").value)||0;
+  const pesoFinalKg = parseFloat(document.getElementById("rendPesoFinal").value)||0;
+  const pesoBrutoKg = parseFloat(document.getElementById("rendPesoBruto").value)||0;
+  const preview = document.getElementById("rendPreviewCusto");
+  if(pesoFinalKg>0 && (valorCompra+custoAdicional)>0){
+    const insumo = db.insumos.find(i=>i.id===document.getElementById("rendInsumo").value);
+    const custoPorGrama = (valorCompra+custoAdicional)/(pesoFinalKg*1000);
+    let texto = "Custo calculado: R$ "+custoPorGrama.toFixed(4).replace(".",",")+" / g  ·  R$ "+(custoPorGrama*(insumo?insumo.porcaoReferenciaG:70)).toFixed(2).replace(".",",")+" por porção de "+(insumo?insumo.porcaoReferenciaG:70)+"g";
+    if(pesoBrutoKg>0){
+      const rendimentoPct = (pesoFinalKg/pesoBrutoKg*100);
+      texto += "  ·  Rendimento: "+rendimentoPct.toFixed(1).replace(".",",")+"% (de "+pesoBrutoKg+"kg bruto)";
+    }
+    preview.style.display="block";
+    preview.textContent = texto;
+  } else {
+    preview.style.display="none";
+  }
+}
+
+/* ---------- Estoque ---------- */
+function statusBadge(insumo, saldoG){
+  if(saldoG <= 0) return {cls:"danger", label:"repor"};
+  if(saldoG < insumo.minimoProducaoG) return {cls:"warn", label:"atenção"};
+  return {cls:"ok", label:"ok"};
+}
+function renderEstoque(){
+  const prod = document.getElementById("estoqueProducao");
+  const cen = document.getElementById("estoqueCentral");
+  if(db.insumos.length===0){ prod.innerHTML=cen.innerHTML='<div class="empty">Nenhum insumo cadastrado.</div>'; return; }
+  prod.innerHTML = db.insumos.map(i=>{
+    const s = statusBadge(i, i.saldoProducaoG);
+    return '<div class="card row"><div><p class="item-title">'+esc(i.nome)+'</p>'+
+      '<p class="item-sub">'+formatPeso(i.saldoProducaoG)+'</p></div>'+
+      '<span class="badge '+s.cls+'">'+s.label+'</span></div>';
+  }).join("");
+  cen.innerHTML = db.insumos.map(i=>{
+    return '<div class="card row"><div><p class="item-title">'+esc(i.nome)+'</p>'+
+      '<p class="item-sub">'+formatPeso(i.saldoCentralG)+'</p></div>'+
+      '<button class="small" onclick="transferir(\''+i.id+'\')">transferir</button></div>';
+  }).join("");
+}
+function transferir(insumoId){
+  const insumo = db.insumos.find(i=>i.id===insumoId);
+  const respostaG = parseFloat(prompt("Quantos GRAMAS transferir do Central para o Produção?\nDisponível no Central: "+formatPeso(insumo.saldoCentralG)));
+  if(!respostaG || respostaG<=0) return;
+  if(respostaG > insumo.saldoCentralG){ alert("Não há peso suficiente no Central."); return; }
+  insumo.saldoCentralG -= respostaG;
+  insumo.saldoProducaoG += respostaG;
+  db.movimentacoes.push({insumoId, tipo:"transferencia", localOrigem:"central", localDestino:"producao", pesoG:respostaG, data:new Date().toISOString()});
+  saveDB(db);
+  renderEstoque();
+}
+function debitarVenda(insumoId, gramas){
+  const insumo = db.insumos.find(i=>i.id===insumoId);
+  if(!insumo) return;
+  insumo.saldoProducaoG = Math.max(0, insumo.saldoProducaoG - gramas);
+  db.movimentacoes.push({insumoId, tipo:"saida_venda", localOrigem:"producao", pesoG:gramas, data:new Date().toISOString()});
+  saveDB(db);
+}
+
+/* ---------- Produtos (ficha técnica) ---------- */
+let novoProdutoItens = [];
+function renderProdutos(){
+  const selInsumo = document.getElementById("novoProdInsumo");
+  selInsumo.innerHTML = db.insumos.map(i=>'<option value="'+i.id+'">'+esc(i.nome)+'</option>').join("");
+  document.getElementById("novoProdNome").value = "";
+  document.getElementById("novoProdGramas").value = "";
+  novoProdutoItens = [];
+  renderNovoProdutoPreview();
+
+  const list = document.getElementById("produtosList");
+  list.innerHTML = db.produtos.length ? db.produtos.map(p=>{
+    const itensTexto = p.itens.map(it=>{
+      const ins = db.insumos.find(i=>i.id===it.insumoId);
+      return (ins?ins.nome:it.insumoId)+": "+it.gramas+"g";
+    }).join(" · ");
+    return '<div class="card row"><div><p class="item-title">'+esc(p.nome)+'</p>'+
+      '<p class="item-sub">'+esc(itensTexto)+'</p></div>'+
+      '<button class="small ghost" onclick="excluirProduto(\''+p.id+'\')">excluir</button></div>';
+  }).join("") : '<div class="empty">Nenhum produto cadastrado ainda.</div>';
+}
+function renderNovoProdutoPreview(){
+  const box = document.getElementById("novoProdItensPreview");
+  if(novoProdutoItens.length===0){ box.innerHTML=""; return; }
+  box.innerHTML = novoProdutoItens.map((it,idx)=>{
+    const ins = db.insumos.find(i=>i.id===it.insumoId);
+    return '<div class="row" style="padding:4px 0;"><span class="item-sub">'+(ins?esc(ins.nome):it.insumoId)+': '+it.gramas+'g</span>'+
+      '<button class="small ghost" onclick="removerItemNovoProduto('+idx+')">x</button></div>';
+  }).join("");
+}
+function removerItemNovoProduto(idx){
+  novoProdutoItens.splice(idx,1);
+  renderNovoProdutoPreview();
+}
+document.getElementById("btnAddItemProduto").addEventListener("click", ()=>{
+  const insumoId = document.getElementById("novoProdInsumo").value;
+  const gramas = parseFloat(document.getElementById("novoProdGramas").value);
+  if(!gramas || gramas<=0){ alert("Informe a quantidade em gramas."); return; }
+  novoProdutoItens.push({insumoId, gramas});
+  document.getElementById("novoProdGramas").value = "";
+  renderNovoProdutoPreview();
+});
+document.getElementById("btnSalvarProduto").addEventListener("click", ()=>{
+  const nome = document.getElementById("novoProdNome").value.trim();
+  if(!nome){ alert("Dê um nome ao produto."); return; }
+  if(novoProdutoItens.length===0){ alert("Adicione pelo menos um insumo à ficha técnica."); return; }
+  db.produtos.push({id:"prod_"+Date.now(), nome, itens:novoProdutoItens.slice()});
+  saveDB(db);
+  renderProdutos();
+});
+function excluirProduto(id){
+  if(!confirm("Excluir esse produto da ficha técnica?")) return;
+  db.produtos = db.produtos.filter(p=>p.id!==id);
+  saveDB(db);
+  renderProdutos();
+}
+
+/* ---------- Registrar Venda (manual) ---------- */
+let vendaLinhas = [];
+function renderVenda(){
+  document.getElementById("vendaData").value = new Date().toISOString().slice(0,10);
+  const sel = document.getElementById("vendaProduto");
+  sel.innerHTML = db.produtos.map(p=>'<option value="'+p.id+'">'+esc(p.nome)+'</option>').join("");
+  document.getElementById("vendaQtd").value = "1";
+  vendaLinhas = [];
+  renderVendaLinhasPreview();
+
+  const rec = db.vendasManual.slice().reverse().slice(0,5);
+  document.getElementById("vendasRecentes").innerHTML = rec.length ?
+    "<h3>Últimos lançamentos</h3>"+rec.map(v=>{
+      const itensTxt = v.linhas.map(l=>{
+        const p = db.produtos.find(pr=>pr.id===l.produtoId);
+        return (p?p.nome:l.produtoId)+" x"+l.quantidade;
+      }).join(", ");
+      return '<div class="card"><p class="item-title">'+v.data+'</p><p class="item-sub">'+esc(itensTxt)+'</p></div>';
+    }).join("") : "";
+}
+function renderVendaLinhasPreview(){
+  const box = document.getElementById("vendaLinhasPreview");
+  if(vendaLinhas.length===0){ box.innerHTML=""; return; }
+  box.innerHTML = vendaLinhas.map((l,idx)=>{
+    const p = db.produtos.find(pr=>pr.id===l.produtoId);
+    return '<div class="row" style="padding:4px 0;"><span class="item-sub">'+(p?esc(p.nome):l.produtoId)+' x'+l.quantidade+'</span>'+
+      '<button class="small ghost" onclick="removerLinhaVenda('+idx+')">x</button></div>';
+  }).join("");
+}
+function removerLinhaVenda(idx){
+  vendaLinhas.splice(idx,1);
+  renderVendaLinhasPreview();
+}
+document.getElementById("btnAddLinhaVenda").addEventListener("click", ()=>{
+  if(db.produtos.length===0){ alert("Cadastre pelo menos um produto na aba Produtos antes."); return; }
+  const produtoId = document.getElementById("vendaProduto").value;
+  const quantidade = parseInt(document.getElementById("vendaQtd").value)||0;
+  if(quantidade<=0){ alert("Informe uma quantidade válida."); return; }
+  vendaLinhas.push({produtoId, quantidade});
+  renderVendaLinhasPreview();
+});
+document.getElementById("btnRegistrarVenda").addEventListener("click", ()=>{
+  if(vendaLinhas.length===0){ alert("Adicione pelo menos um produto à venda do dia."); return; }
+  const data = document.getElementById("vendaData").value || new Date().toISOString().slice(0,10);
+  // Soma o total de gramas por insumo, considerando todas as linhas
+  const totalPorInsumo = {};
+  vendaLinhas.forEach(l=>{
+    const produto = db.produtos.find(p=>p.id===l.produtoId);
+    if(!produto) return;
+    produto.itens.forEach(it=>{
+      totalPorInsumo[it.insumoId] = (totalPorInsumo[it.insumoId]||0) + it.gramas*l.quantidade;
+    });
+  });
+  let faltou = [];
+  Object.keys(totalPorInsumo).forEach(insumoId=>{
+    const insumo = db.insumos.find(i=>i.id===insumoId);
+    if(insumo && insumo.saldoProducaoG < totalPorInsumo[insumoId]){
+      faltou.push(insumo.nome+" (precisa "+formatPeso(totalPorInsumo[insumoId])+", tem "+formatPeso(insumo.saldoProducaoG)+")");
+    }
+  });
+  if(faltou.length && !confirm("Atenção, estoque de Produção insuficiente para:\n"+faltou.join("\n")+"\n\nRegistrar mesmo assim (estoque pode ficar negativo/zerado)?")) return;
+
+  Object.keys(totalPorInsumo).forEach(insumoId=>{
+    debitarVenda(insumoId, totalPorInsumo[insumoId]);
+  });
+  db.vendasManual.push({id:"venda_"+Date.now(), data, linhas:vendaLinhas.slice()});
+  saveDB(db);
+  renderVenda();
+  alert("Venda registrada e estoque de Produção atualizado!");
+});
+
+/* ---------- Conferência ---------- */
+function renderConferencia(){
+  document.getElementById("cicloDias").textContent = db.cicloConferenciaDias;
+  const lista = document.getElementById("conferenciaLista");
+  lista.innerHTML = db.insumos.map(i=>{
+    return '<div class="card">'+
+      '<div class="row"><span class="item-title">'+esc(i.nome)+' · Produção · esperado</span><span class="item-title">'+formatPeso(i.saldoProducaoG)+'</span></div>'+
+      '<label>Peso físico pesado agora (kg)</label><input type="number" step="0.001" id="conf_'+i.id+'" value="'+(i.saldoProducaoG/1000).toFixed(3)+'">'+
+      '</div>';
+  }).join("") + '<button class="primary" style="width:100%;margin-top:6px;" onclick="confirmarConferencia()">Confirmar conferência</button>'+
+    '<div id="divergenciaResultado"></div>';
+}
+function confirmarConferencia(){
+  let msgs = [];
+  db.insumos.forEach(i=>{
+    const input = document.getElementById("conf_"+i.id);
+    const pesadoG = parseFloat(input.value)*1000;
+    const divG = Math.round(pesadoG - i.saldoProducaoG);
+    if(Math.abs(divG) >= 1){
+      msgs.push(esc(i.nome)+": divergência de "+formatPeso(Math.abs(divG))+(divG<0?" a menos":" a mais"));
+      db.movimentacoes.push({insumoId:i.id, tipo:"ajuste_conferencia", pesoG:divG, data:new Date().toISOString()});
+      i.saldoProducaoG = pesadoG;
+    }
+  });
+  saveDB(db);
+  const res = document.getElementById("divergenciaResultado");
+  res.innerHTML = msgs.length ?
+    '<div class="callout warn" style="margin-top:10px;">'+msgs.join("<br>")+'</div>' :
+    '<div class="callout ok" style="margin-top:10px;">Tudo bateu certinho!</div>';
+}
+
+/* ---------- Início ---------- */
+showScreen("home");
+</script>
+</body>
+</html>
