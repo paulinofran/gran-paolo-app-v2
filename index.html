@@ -835,6 +835,19 @@ function renderEstoque(){
       '<button class="small" onclick="transferir(\''+i.id+'\')">transferir</button></div>';
   }).join("");
 }
+document.getElementById("btnNovoInsumo").addEventListener("click", ()=>{
+  const nome = prompt("Nome do novo insumo (ex: Calabresa, Molho de tomate):");
+  if(!nome || !nome.trim()) return;
+  const porcaoRefStr = prompt("Porção de referência em gramas (ex: 50):", "50");
+  const porcaoRef = numBR(porcaoRefStr)||50;
+  const minimoStr = prompt("Estoque mínimo de segurança na Produção, em gramas (ex: 1000):", "1000");
+  const minimo = numBR(minimoStr)||1000;
+  const id = "insumo_"+Date.now();
+  db.insumos.push({id, nome:nome.trim(), porcaoReferenciaG:porcaoRef, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:minimo});
+  saveDB(db);
+  renderEstoque();
+  alert("Insumo \""+nome.trim()+"\" cadastrado!");
+});
 function transferir(insumoId){
   const insumo = db.insumos.find(i=>i.id===insumoId);
   const respostaG = parseFloat(prompt("Quantos GRAMAS transferir do Central para o Produção?\nDisponível no Central: "+formatPeso(insumo.saldoCentralG)));
