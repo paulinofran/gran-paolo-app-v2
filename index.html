@@ -141,6 +141,12 @@
 
       <div class="field-group" id="grupoLinhaDigitavel" style="display:none;">
         <label>Linha digitável do boleto (código de barras)</label>
+        <button type="button" id="btnAbrirScanner" style="width:100%;background:var(--fill-primary);color:var(--on-primary);border:none;margin-bottom:8px;">📷 Escanear código de barras (câmera ao vivo)</button>
+        <div id="areaScanner" style="display:none;margin-bottom:8px;">
+          <video id="videoScanner" style="width:100%;border-radius:10px;background:#000;" muted playsinline></video>
+          <p class="ocr-status" id="scannerStatus">Aponte a câmera pro código de barras do boleto...</p>
+          <button type="button" class="ghost small" style="width:100%;" id="btnFecharScanner">Cancelar</button>
+        </div>
         <input type="text" id="campoLinhaDigitavel" placeholder="Ex: 34191.79001 01043.510047 91020.150008 1 84410026000" style="font-size:12px;">
         <div style="display:flex;gap:8px;margin-top:6px;">
           <button class="ghost small" style="flex:1;" id="btnDecodificarLinha">Decodificar valor/vencimento</button>
@@ -281,6 +287,7 @@
 </nav>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.20.0"></script>
 <script>
 /* ---------- Persistência ---------- */
 const DB_KEY = "granpaolo_app_v1";
@@ -608,14 +615,21 @@ document.getElementById("btnTipoNota").addEventListener("click", ()=>setTipoDocu
 function limparDigitos(s){ return (s||"").replace(/\D/g,""); }
 function decodificarLinhaDigitavel(linhaBruta){
   const digitos = limparDigitos(linhaBruta);
-  // Linha digitável de boleto bancário comum tem 47 dígitos (48 é boleto de arrecadação/concessionária, não decodifica valor aqui)
-  if(digitos.length !== 47){
-    return {ok:false, motivo:"O código precisa ter 47 números (contando só os dígitos, sem pontos/espaços). Encontrei "+digitos.length+"."};
+  let banco, fatorVencimento, valorCentavos;
+  if(digitos.length === 47){
+    // Linha digitável impressa (47 dígitos, com dígitos verificadores de bloco embutidos)
+    banco = digitos.slice(0,3);
+    const campo5 = digitos.slice(33,47); // 4 dígitos fator vencimento + 10 dígitos valor
+    fatorVencimento = parseInt(campo5.slice(0,4));
+    valorCentavos = parseInt(campo5.slice(4,14));
+  } else if(digitos.length === 44){
+    // Código de barras "cru" (44 dígitos, lido direto da listra pelo scanner) — posições diferentes da linha impressa
+    banco = digitos.slice(0,3);
+    fatorVencimento = parseInt(digitos.slice(5,9));
+    valorCentavos = parseInt(digitos.slice(9,19));
+  } else {
+    return {ok:false, motivo:"O código precisa ter 44 números (código de barras) ou 47 (linha digitável impressa). Encontrei "+digitos.length+"."};
   }
-  const banco = digitos.slice(0,3);
-  const campo5 = digitos.slice(33,47); // 4 dígitos fator vencimento + 10 dígitos valor
-  const fatorVencimento = parseInt(campo5.slice(0,4));
-  const valorCentavos = parseInt(campo5.slice(4,14));
   const valor = valorCentavos/100;
   if(fatorVencimento === 0){
     return {ok:true, banco, valor, vencimento:null, aviso:"Fator de vencimento zerado — este boleto não tem vencimento definido no código (comum em boletos sem registro de data)."};
@@ -644,6 +658,48 @@ function tentarExtrairLinhaDigitavel(text){
   }
   return null;
 }
+
+/* ---------- Scanner de código de barras ao vivo (lê a listra de verdade, não texto) ---------- */
+let zxingReader = null;
+document.getElementById("btnAbrirScanner").addEventListener("click", async ()=>{
+  document.getElementById("areaScanner").style.display = "block";
+  document.getElementById("scannerStatus").textContent = "Abrindo câmera...";
+  document.getElementById("scannerStatus").style.color = "";
+  try{
+    if(!window.ZXing){ throw new Error("Biblioteca não carregou"); }
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.ITF]);
+    zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+    zxingReader.decodeFromVideoDevice(undefined, "videoScanner", (result, err)=>{
+      if(result){
+        const texto = result.getText();
+        const digitos = limparDigitos(texto);
+        if(digitos.length===44 || digitos.length===47){
+          document.getElementById("scannerStatus").textContent = "Código lido com sucesso!";
+          document.getElementById("scannerStatus").style.color = "var(--ok)";
+          document.getElementById("campoLinhaDigitavel").value = digitos;
+          fecharScanner();
+          const res = decodificarLinhaDigitavel(digitos);
+          if(res.ok){
+            document.getElementById("campoValor").value = res.valor.toFixed(2).replace(".",",");
+            if(res.vencimento) document.getElementById("campoVencimento").value = res.vencimento;
+            document.getElementById("decodStatus").textContent = "Código de barras escaneado e decodificado automaticamente!";
+            document.getElementById("decodStatus").style.color = "var(--ok)";
+          }
+        }
+      }
+    });
+  }catch(err){
+    document.getElementById("scannerStatus").textContent = "Não consegui acessar a câmera. Verifique a permissão do navegador, ou use foto/digitação manual abaixo.";
+    document.getElementById("scannerStatus").style.color = "var(--danger)";
+  }
+});
+function fecharScanner(){
+  if(zxingReader){ zxingReader.reset(); zxingReader = null; }
+  document.getElementById("areaScanner").style.display = "none";
+}
+document.getElementById("btnFecharScanner").addEventListener("click", fecharScanner);
+
 document.getElementById("btnDecodificarLinha").addEventListener("click", ()=>{
   const linha = document.getElementById("campoLinhaDigitavel").value;
   const status = document.getElementById("decodStatus");
