@@ -86,6 +86,13 @@
         <p class="home-sub">Rendimento, porções e conferência</p>
       </span>
     </button>
+    <button class="home-card" id="btnHomeFinanceiro">
+      <span class="home-icon">📊</span>
+      <span>
+        <p class="home-title">Financeiro</p>
+        <p class="home-sub">Lucro real do período (DRE)</p>
+      </span>
+    </button>
     <div class="card">
       <label style="margin-top:0;">Backup dos dados</label>
       <p class="item-sub" style="margin-bottom:8px;">Faça isso <strong>antes</strong> de trocar de versão do app, pra não perder o que já foi lançado.</p>
@@ -205,6 +212,8 @@
     <div class="card">
       <label style="margin-top:0;">Novo produto</label>
       <input type="text" id="novoProdNome" placeholder="Nome do produto">
+      <label>Preço de venda (R$)</label>
+      <input type="text" inputmode="decimal" id="novoProdPreco" placeholder="Ex: 45,00">
       <div style="display:flex;gap:8px;margin-top:8px;">
         <select id="novoProdInsumo" style="flex:1;"></select>
         <input type="text" inputmode="decimal" id="novoProdGramas" placeholder="Gramas" style="width:90px;">
@@ -230,6 +239,20 @@
       <button class="primary" style="width:100%;margin-top:10px;" id="btnRegistrarVenda">Registrar venda e debitar estoque</button>
     </div>
     <div id="vendasRecentes"></div>
+  </section>
+
+  <!-- FINANCEIRO (DRE) -->
+  <section class="screen" id="screen-financeiro">
+    <div class="callout">Receita das vendas − Custo de insumo − Despesas pagas = Lucro líquido real</div>
+    <div class="card" style="margin-bottom:10px;">
+      <label style="margin-top:0;">Período</label>
+      <div style="display:flex;gap:8px;align-items:end;">
+        <div style="flex:1;"><label style="margin-top:0;">De</label><input type="date" id="finDe"></div>
+        <div style="flex:1;"><label style="margin-top:0;">Até</label><input type="date" id="finAte"></div>
+      </div>
+      <button class="primary small" style="width:100%;margin-top:8px;" id="btnFiltrarFin">Calcular período</button>
+    </div>
+    <div id="dreResultado"></div>
   </section>
 
   <!-- CONFERÊNCIA -->
@@ -263,7 +286,12 @@ function loadDB(){
   if(raw){
     const parsed = JSON.parse(raw);
     if(!parsed.produtos) parsed.produtos = [];
+    parsed.produtos.forEach(p=>{ if(p.precoVenda===undefined) p.precoVenda = 0; });
     if(!parsed.vendasManual) parsed.vendasManual = [];
+    parsed.vendasManual.forEach(v=>{
+      if(v.receitaTotal===undefined) v.receitaTotal = 0;
+      if(v.custoInsumoTotal===undefined) v.custoInsumoTotal = 0;
+    });
     if(parsed.notasFiscais){
       parsed.notasFiscais.forEach(n=>{
         if(!n.itens){
@@ -280,11 +308,11 @@ function loadDB(){
       {id:"mussarela_p", nome:"Mussarela pequena", porcaoReferenciaG:100, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000}
     ],
     produtos: [
-      {id:"prod_pg_frango", nome:"Pizza Grande de Frango (exemplo)", itens:[{insumoId:"frango", gramas:140}]},
-      {id:"prod_pp_frango", nome:"Pizza Pequena de Frango, 1 sabor (exemplo)", itens:[{insumoId:"frango", gramas:70}]},
-      {id:"prod_pp_frango_meio", nome:"Metade Pequena de Frango, 2 sabores (exemplo)", itens:[{insumoId:"frango", gramas:35}]},
-      {id:"prod_pg_mussarela", nome:"Pizza Grande de Mussarela (exemplo)", itens:[{insumoId:"mussarela_g", gramas:200}]},
-      {id:"prod_pp_mussarela", nome:"Pizza Pequena de Mussarela (exemplo)", itens:[{insumoId:"mussarela_p", gramas:100}]}
+      {id:"prod_pg_frango", nome:"Pizza Grande de Frango (exemplo)", precoVenda:45.00, itens:[{insumoId:"frango", gramas:140}]},
+      {id:"prod_pp_frango", nome:"Pizza Pequena de Frango, 1 sabor (exemplo)", precoVenda:28.00, itens:[{insumoId:"frango", gramas:70}]},
+      {id:"prod_pp_frango_meio", nome:"Metade Pequena de Frango, 2 sabores (exemplo)", precoVenda:15.00, itens:[{insumoId:"frango", gramas:35}]},
+      {id:"prod_pg_mussarela", nome:"Pizza Grande de Mussarela (exemplo)", precoVenda:40.00, itens:[{insumoId:"mussarela_g", gramas:200}]},
+      {id:"prod_pp_mussarela", nome:"Pizza Pequena de Mussarela (exemplo)", precoVenda:25.00, itens:[{insumoId:"mussarela_p", gramas:100}]}
     ],
     vendasManual: [],
     contasPagar: [],
@@ -308,16 +336,17 @@ const titles = {
   estoque:["Estoque","Gran Paolo · Unidade Centro"],
   produtos:["Produtos","Ficha técnica de consumo por produto"],
   venda:["Registrar venda","Lançamento manual, debita a Produção"],
-  conferencia:["Fechamento e conferência","Confira o que sobrou fisicamente"]
+  conferencia:["Fechamento e conferência","Confira o que sobrou fisicamente"],
+  financeiro:["Financeiro","Lucro real do período"]
 };
-const screenToArea = {home:"home", contas:"contas", nova:"contas", rendimento:"estoque", estoque:"estoque", produtos:"estoque", venda:"estoque", conferencia:"estoque"};
+const screenToArea = {home:"home", contas:"contas", nova:"contas", rendimento:"estoque", estoque:"estoque", produtos:"estoque", venda:"estoque", conferencia:"estoque", financeiro:"financeiro"};
 function showScreen(name){
   if(name !== "nova") editandoId = null;
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
   document.getElementById("screen-"+name).classList.add("active");
   const area = screenToArea[name] || "home";
   const nav = document.getElementById("navBottom");
-  nav.classList.remove("area-contas","area-estoque","area-home");
+  nav.classList.remove("area-contas","area-estoque","area-home","area-financeiro");
   nav.classList.add("area-"+area);
   document.querySelectorAll("nav.bottom button[data-screen]").forEach(b=>b.classList.toggle("active", b.dataset.screen===name));
   document.getElementById("screenTitle").textContent = titles[name][0];
@@ -329,12 +358,14 @@ function showScreen(name){
   if(name==="produtos") renderProdutos();
   if(name==="venda") renderVenda();
   if(name==="conferencia") renderConferencia();
+  if(name==="financeiro") renderFinanceiro();
 }
 document.querySelectorAll("nav.bottom button[data-screen]").forEach(b=>{
   b.addEventListener("click", ()=>showScreen(b.dataset.screen));
 });
 document.getElementById("btnHomeContas").addEventListener("click", ()=>showScreen("contas"));
 document.getElementById("btnHomeEstoque").addEventListener("click", ()=>showScreen("rendimento"));
+document.getElementById("btnHomeFinanceiro").addEventListener("click", ()=>showScreen("financeiro"));
 
 /* ---------- Backup: exportar / importar ---------- */
 document.getElementById("btnExportar").addEventListener("click", ()=>{
@@ -873,6 +904,7 @@ function renderProdutos(){
   const selInsumo = document.getElementById("novoProdInsumo");
   selInsumo.innerHTML = db.insumos.map(i=>'<option value="'+i.id+'">'+esc(i.nome)+'</option>').join("");
   document.getElementById("novoProdNome").value = "";
+  document.getElementById("novoProdPreco").value = "";
   document.getElementById("novoProdGramas").value = "";
   novoProdutoItens = [];
   renderNovoProdutoPreview();
@@ -883,8 +915,13 @@ function renderProdutos(){
       const ins = db.insumos.find(i=>i.id===it.insumoId);
       return (ins?ins.nome:it.insumoId)+": "+it.gramas+"g";
     }).join(" · ");
-    return '<div class="card row"><div><p class="item-title">'+esc(p.nome)+'</p>'+
-      '<p class="item-sub">'+esc(itensTexto)+'</p></div>'+
+    const custoTotal = p.itens.reduce((s,it)=>{
+      const ins = db.insumos.find(i=>i.id===it.insumoId);
+      return s + (ins ? ins.custoPorGrama*it.gramas : 0);
+    },0);
+    const margemTxt = p.precoVenda>0 ? (" · margem R$"+(p.precoVenda-custoTotal).toFixed(2).replace(".",",")) : "";
+    return '<div class="card row"><div><p class="item-title">'+esc(p.nome)+' — R$'+(p.precoVenda||0).toFixed(2).replace(".",",")+'</p>'+
+      '<p class="item-sub">'+esc(itensTexto)+margemTxt+'</p></div>'+
       '<button class="small ghost" onclick="excluirProduto(\''+p.id+'\')">excluir</button></div>';
   }).join("") : '<div class="empty">Nenhum produto cadastrado ainda.</div>';
 }
@@ -911,9 +948,10 @@ document.getElementById("btnAddItemProduto").addEventListener("click", ()=>{
 });
 document.getElementById("btnSalvarProduto").addEventListener("click", ()=>{
   const nome = document.getElementById("novoProdNome").value.trim();
+  const precoVenda = valorCampo("novoProdPreco")||0;
   if(!nome){ alert("Dê um nome ao produto."); return; }
   if(novoProdutoItens.length===0){ alert("Adicione pelo menos um insumo à ficha técnica."); return; }
-  db.produtos.push({id:"prod_"+Date.now(), nome, itens:novoProdutoItens.slice()});
+  db.produtos.push({id:"prod_"+Date.now(), nome, precoVenda, itens:novoProdutoItens.slice()});
   saveDB(db);
   renderProdutos();
 });
@@ -986,10 +1024,22 @@ document.getElementById("btnRegistrarVenda").addEventListener("click", ()=>{
   });
   if(faltou.length && !confirm("Atenção, estoque de Produção insuficiente para:\n"+faltou.join("\n")+"\n\nRegistrar mesmo assim (estoque pode ficar negativo/zerado)?")) return;
 
+  // Calcula receita e custo do momento (fica travado no histórico, não muda se preço/custo mudar depois)
+  let receitaTotal = 0, custoInsumoTotal = 0;
+  vendaLinhas.forEach(l=>{
+    const produto = db.produtos.find(p=>p.id===l.produtoId);
+    if(!produto) return;
+    receitaTotal += (produto.precoVenda||0) * l.quantidade;
+    produto.itens.forEach(it=>{
+      const ins = db.insumos.find(i=>i.id===it.insumoId);
+      if(ins) custoInsumoTotal += ins.custoPorGrama * it.gramas * l.quantidade;
+    });
+  });
+
   Object.keys(totalPorInsumo).forEach(insumoId=>{
     debitarVenda(insumoId, totalPorInsumo[insumoId]);
   });
-  db.vendasManual.push({id:"venda_"+Date.now(), data, linhas:vendaLinhas.slice()});
+  db.vendasManual.push({id:"venda_"+Date.now(), data, linhas:vendaLinhas.slice(), receitaTotal, custoInsumoTotal});
   saveDB(db);
   renderVenda();
   alert("Venda registrada e estoque de Produção atualizado!");
@@ -1024,6 +1074,47 @@ function confirmarConferencia(){
   res.innerHTML = msgs.length ?
     '<div class="callout warn" style="margin-top:10px;">'+msgs.join("<br>")+'</div>' :
     '<div class="callout ok" style="margin-top:10px;">Tudo bateu certinho!</div>';
+}
+
+/* ---------- Financeiro (DRE) ---------- */
+function renderFinanceiro(){
+  const hoje = new Date().toISOString().slice(0,10);
+  const inicioMes = hoje.slice(0,8)+"01";
+  if(!document.getElementById("finDe").value) document.getElementById("finDe").value = inicioMes;
+  if(!document.getElementById("finAte").value) document.getElementById("finAte").value = hoje;
+  calcularDRE();
+}
+document.getElementById("btnFiltrarFin").addEventListener("click", calcularDRE);
+function calcularDRE(){
+  const de = document.getElementById("finDe").value;
+  const ate = document.getElementById("finAte").value;
+
+  const vendasPeriodo = db.vendasManual.filter(v=> (!de || v.data>=de) && (!ate || v.data<=ate) );
+  const receita = vendasPeriodo.reduce((s,v)=>s+(v.receitaTotal||0),0);
+  const custoInsumo = vendasPeriodo.reduce((s,v)=>s+(v.custoInsumoTotal||0),0);
+  const lucroBruto = receita - custoInsumo;
+
+  const despesasPeriodo = db.contasPagar.filter(c=> c.status==="paga" && c.dataPagamento && (!de || c.dataPagamento>=de) && (!ate || c.dataPagamento<=ate) );
+  const despesas = despesasPeriodo.reduce((s,c)=>s+Number(c.valor||0),0);
+  const lucroLiquido = lucroBruto - despesas;
+
+  const margemBruta = receita>0 ? (lucroBruto/receita*100) : 0;
+  const margemLiquida = receita>0 ? (lucroLiquido/receita*100) : 0;
+
+  const fmt = (v)=> "R$ "+v.toFixed(2).replace(".",",");
+  document.getElementById("dreResultado").innerHTML =
+    '<div class="card">'+
+    '<div class="row" style="padding:6px 0;"><span class="item-sub">Receita (vendas)</span><span class="item-title">'+fmt(receita)+'</span></div>'+
+    '<div class="row" style="padding:6px 0;color:var(--danger);"><span class="item-sub" style="color:var(--danger);">(−) Custo de insumo</span><span>'+fmt(custoInsumo)+'</span></div>'+
+    '<div class="row" style="padding:8px 0;background:var(--accent-soft);margin:0 -14px;padding-left:14px;padding-right:14px;border-radius:8px;"><span class="item-title" style="color:var(--accent);">= Lucro bruto</span><span class="item-title" style="color:var(--accent);">'+fmt(lucroBruto)+'</span></div>'+
+    '<div class="row" style="padding:6px 0;margin-top:4px;"><span class="item-sub" style="color:var(--danger);">(−) Despesas pagas</span><span style="color:var(--danger);">'+fmt(despesas)+'</span></div>'+
+    '<div class="row" style="padding:10px 0;"><span class="item-title" style="font-size:15px;">= Lucro líquido</span><span class="item-title" style="font-size:17px;color:var(--ok);">'+fmt(lucroLiquido)+'</span></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;margin-top:10px;">'+
+    '<div class="card" style="flex:1;text-align:center;"><p class="item-sub" style="margin:0;">Margem bruta</p><p class="item-title" style="margin:4px 0 0;">'+margemBruta.toFixed(0)+'%</p></div>'+
+    '<div class="card" style="flex:1;text-align:center;"><p class="item-sub" style="margin:0;">Margem líquida</p><p class="item-title" style="margin:4px 0 0;">'+margemLiquida.toFixed(0)+'%</p></div>'+
+    '</div>'+
+    (vendasPeriodo.length===0 ? '<div class="empty">Nenhuma venda registrada nesse período ainda. Lance em Estoque → Venda.</div>' : '');
 }
 
 /* ---------- Início ---------- */
