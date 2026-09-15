@@ -145,6 +145,7 @@
         <div id="areaScanner" style="display:none;margin-bottom:8px;">
           <video id="videoScanner" style="width:100%;border-radius:10px;background:#000;" muted playsinline></video>
           <p class="ocr-status" id="scannerStatus">Aponte a câmera pro código de barras do boleto...</p>
+          <button type="button" class="primary small" style="width:100%;margin-bottom:6px;" id="btnCapturarFrame">📸 Capturar e tentar ler agora</button>
           <button type="button" class="ghost small" style="width:100%;" id="btnFecharScanner">Cancelar</button>
         </div>
         <input type="text" id="campoLinhaDigitavel" placeholder="Ex: 34191.79001 01043.510047 91020.150008 1 84410026000" style="font-size:12px;">
@@ -673,23 +674,7 @@ document.getElementById("btnAbrirScanner").addEventListener("click", async ()=>{
     }
     zxingReader = new Lib.BrowserMultiFormatReader();
     zxingReader.decodeFromVideoDevice(undefined, "videoScanner", (result, err)=>{
-      if(result){
-        const texto = result.getText();
-        const digitos = limparDigitos(texto);
-        if(digitos.length===44 || digitos.length===47){
-          document.getElementById("scannerStatus").textContent = "Código lido com sucesso!";
-          document.getElementById("scannerStatus").style.color = "var(--ok)";
-          document.getElementById("campoLinhaDigitavel").value = digitos;
-          fecharScanner();
-          const res = decodificarLinhaDigitavel(digitos);
-          if(res.ok){
-            document.getElementById("campoValor").value = res.valor.toFixed(2).replace(".",",");
-            if(res.vencimento) document.getElementById("campoVencimento").value = res.vencimento;
-            document.getElementById("decodStatus").textContent = "Código de barras escaneado e decodificado automaticamente!";
-            document.getElementById("decodStatus").style.color = "var(--ok)";
-          }
-        }
-      }
+      if(result) processarCodigoLido(result.getText());
     });
   }catch(err){
     document.getElementById("scannerStatus").textContent = "Não consegui usar o leitor (" + (err.message||"erro desconhecido") + "). Use foto ou digitação manual abaixo.";
@@ -701,6 +686,48 @@ function fecharScanner(){
   document.getElementById("areaScanner").style.display = "none";
 }
 document.getElementById("btnFecharScanner").addEventListener("click", fecharScanner);
+
+function processarCodigoLido(texto){
+  const digitos = limparDigitos(texto);
+  if(digitos.length!==44 && digitos.length!==47) return false;
+  document.getElementById("scannerStatus").textContent = "Código lido com sucesso!";
+  document.getElementById("scannerStatus").style.color = "var(--ok)";
+  document.getElementById("campoLinhaDigitavel").value = digitos;
+  fecharScanner();
+  const res = decodificarLinhaDigitavel(digitos);
+  if(res.ok){
+    document.getElementById("campoValor").value = res.valor.toFixed(2).replace(".",",");
+    if(res.vencimento) document.getElementById("campoVencimento").value = res.vencimento;
+    document.getElementById("decodStatus").textContent = "Código de barras escaneado e decodificado automaticamente!";
+    document.getElementById("decodStatus").style.color = "var(--ok)";
+  }
+  return true;
+}
+document.getElementById("btnCapturarFrame").addEventListener("click", async ()=>{
+  const video = document.getElementById("videoScanner");
+  if(!video.videoWidth){
+    document.getElementById("scannerStatus").textContent = "Câmera ainda carregando, espere 1 segundo e tente de novo.";
+    return;
+  }
+  document.getElementById("scannerStatus").textContent = "Analisando a foto capturada...";
+  document.getElementById("scannerStatus").style.color = "";
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+  try{
+    const Lib = window.ZXingBrowser || window.ZXing;
+    const dataUrl = canvas.toDataURL("image/png");
+    const result = await zxingReader.decodeFromImageUrl(dataUrl);
+    if(!processarCodigoLido(result.getText())){
+      document.getElementById("scannerStatus").textContent = "Leu algo, mas não bateu com o tamanho esperado. Tente de novo, mais próximo e com boa luz.";
+      document.getElementById("scannerStatus").style.color = "var(--warn)";
+    }
+  }catch(err){
+    document.getElementById("scannerStatus").textContent = "Não achei o código nessa captura. Aproxime mais, evite reflexo, e tente de novo.";
+    document.getElementById("scannerStatus").style.color = "var(--warn)";
+  }
+});
 
 document.getElementById("btnDecodificarLinha").addEventListener("click", ()=>{
   const linha = document.getElementById("campoLinhaDigitavel").value;
