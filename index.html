@@ -148,7 +148,13 @@
         </div>
         <p class="ocr-status" id="decodStatus"></p>
       </div>
-      <div class="field-group"><label>Fornecedor</label><input id="campoFornecedor" placeholder="Nome do fornecedor"></div>
+      <div class="field-group">
+        <label>Fornecedor</label>
+        <div style="display:flex;gap:8px;">
+          <select id="campoFornecedor" style="flex:1;"></select>
+          <button type="button" id="btnNovoFornecedor" style="white-space:nowrap;">+ Novo</button>
+        </div>
+      </div>
       <div class="field-group"><label>Valor (R$)</label><input id="campoValor" type="text" inputmode="decimal" placeholder="0,00"></div>
       <div class="field-group">
         <label>Forma de pagamento</label>
@@ -292,6 +298,12 @@ function loadDB(){
       if(v.receitaTotal===undefined) v.receitaTotal = 0;
       if(v.custoInsumoTotal===undefined) v.custoInsumoTotal = 0;
     });
+    if(!parsed.fornecedores){
+      // Migração: cria cadastro a partir dos nomes de fornecedor já digitados antes (texto livre)
+      const nomesExistentes = new Set();
+      (parsed.contasPagar||[]).forEach(c=>{ if(c.fornecedor) nomesExistentes.add(c.fornecedor.trim()); });
+      parsed.fornecedores = Array.from(nomesExistentes).map(nome=>({id:"forn_"+Date.now()+"_"+Math.floor(Math.random()*10000), nome, telefone:null}));
+    }
     if(parsed.notasFiscais){
       parsed.notasFiscais.forEach(n=>{
         if(!n.itens){
@@ -315,6 +327,7 @@ function loadDB(){
       {id:"prod_pp_mussarela", nome:"Pizza Pequena de Mussarela (exemplo)", precoVenda:25.00, itens:[{insumoId:"mussarela_p", gramas:100}]}
     ],
     vendasManual: [],
+    fornecedores: [],
     contasPagar: [],
     notasFiscais: [],
     rendimentos: [],
@@ -525,6 +538,21 @@ document.getElementById("btnStatusPagas").addEventListener("click", ()=>setFiltr
 /* ---------- Nova conta (com OCR) ---------- */
 let tipoDocumentoAtual = "boleto";
 let editandoId = null;
+function populateFornecedorSelect(selectedName){
+  const sel = document.getElementById("campoFornecedor");
+  let nomes = db.fornecedores.map(f=>f.nome);
+  if(selectedName && !nomes.includes(selectedName)) nomes.push(selectedName);
+  sel.innerHTML = nomes.length ? nomes.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join("") : '<option value="">Nenhum cadastrado ainda</option>';
+  if(selectedName) sel.value = selectedName;
+}
+document.getElementById("btnNovoFornecedor").addEventListener("click", ()=>{
+  const nome = prompt("Nome do fornecedor:");
+  if(!nome || !nome.trim()) return;
+  const telefone = prompt("Telefone (opcional):") || null;
+  db.fornecedores.push({id:"forn_"+Date.now(), nome:nome.trim(), telefone});
+  saveDB(db);
+  populateFornecedorSelect(nome.trim());
+});
 function renderNovaConta(){
   document.getElementById("photoPreview").style.display="none";
   document.getElementById("ocrStatus").textContent="";
@@ -536,7 +564,7 @@ function renderNovaConta(){
     if(!conta){ editandoId=null; return renderNovaConta(); }
     const nota = db.notasFiscais.find(n=>n.id===editandoId);
     setTipoDocumento(nota ? "nota_fiscal" : "boleto");
-    document.getElementById("campoFornecedor").value = conta.fornecedor || "";
+    populateFornecedorSelect(conta.fornecedor || "");
     document.getElementById("campoValor").value = conta.valor ? String(conta.valor).replace(".",",") : "";
     document.getElementById("campoFormaPagamento").value = conta.formaPagamento || "dinheiro";
     document.getElementById("campoVencimento").value = conta.vencimento || "";
@@ -547,7 +575,7 @@ function renderNovaConta(){
     document.getElementById("screenSubtitle").textContent = "Alterando lançamento existente";
     document.getElementById("btnSalvarConta").textContent = "Salvar alterações";
   } else {
-    document.getElementById("campoFornecedor").value="";
+    populateFornecedorSelect("");
     document.getElementById("campoValor").value="";
     document.getElementById("campoVencimento").value="";
     document.getElementById("campoLinhaDigitavel").value="";
@@ -684,7 +712,7 @@ document.getElementById("fotoInput").addEventListener("change", async (e)=>{
 
     const linhasTexto = text.split("\n").map(l=>l.trim()).filter(l=>l.length>4);
     if(linhasTexto[0] && !document.getElementById("campoFornecedor").value){
-      document.getElementById("campoFornecedor").value = linhasTexto[0].slice(0,60);
+      populateFornecedorSelect(linhasTexto[0].slice(0,60));
     }
   }catch(err){
     status.textContent = "Não consegui ler automaticamente. Preencha manualmente, ou digite a linha digitável acima e toque em Decodificar.";
@@ -693,6 +721,9 @@ document.getElementById("fotoInput").addEventListener("change", async (e)=>{
 
 document.getElementById("btnSalvarConta").addEventListener("click", ()=>{
   const fornecedor = document.getElementById("campoFornecedor").value.trim();
+  if(fornecedor && !db.fornecedores.some(f=>f.nome===fornecedor)){
+    db.fornecedores.push({id:"forn_"+Date.now(), nome:fornecedor, telefone:null});
+  }
   const valor = valorCampo("campoValor")||0;
   const formaPagamento = document.getElementById("campoFormaPagamento").value;
   const linhaDigitavel = document.getElementById("campoLinhaDigitavel").value.trim() || null;
