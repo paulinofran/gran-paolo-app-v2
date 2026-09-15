@@ -287,7 +287,8 @@
 </nav>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
-<script src="https://unpkg.com/@zxing/library@0.20.0"></script>
+<script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
+<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
 <script>
 /* ---------- Persistência ---------- */
 const DB_KEY = "granpaolo_app_v1";
@@ -666,10 +667,11 @@ document.getElementById("btnAbrirScanner").addEventListener("click", async ()=>{
   document.getElementById("scannerStatus").textContent = "Abrindo câmera...";
   document.getElementById("scannerStatus").style.color = "";
   try{
-    if(!window.ZXing){ throw new Error("Biblioteca não carregou"); }
-    const hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.ITF]);
-    zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+    const Lib = window.ZXingBrowser || window.ZXing;
+    if(!Lib || !Lib.BrowserMultiFormatReader){
+      throw new Error("Biblioteca de leitura de código de barras não carregou. Verifique sua conexão com a internet e tente novamente.");
+    }
+    zxingReader = new Lib.BrowserMultiFormatReader();
     zxingReader.decodeFromVideoDevice(undefined, "videoScanner", (result, err)=>{
       if(result){
         const texto = result.getText();
@@ -690,7 +692,7 @@ document.getElementById("btnAbrirScanner").addEventListener("click", async ()=>{
       }
     });
   }catch(err){
-    document.getElementById("scannerStatus").textContent = "Não consegui acessar a câmera. Verifique a permissão do navegador, ou use foto/digitação manual abaixo.";
+    document.getElementById("scannerStatus").textContent = "Não consegui usar o leitor (" + (err.message||"erro desconhecido") + "). Use foto ou digitação manual abaixo.";
     document.getElementById("scannerStatus").style.color = "var(--danger)";
   }
 });
