@@ -673,9 +673,26 @@ document.getElementById("btnAbrirScanner").addEventListener("click", async ()=>{
       throw new Error("Biblioteca de leitura de código de barras não carregou. Verifique sua conexão com a internet e tente novamente.");
     }
     zxingReader = new Lib.BrowserMultiFormatReader();
-    zxingReader.decodeFromVideoDevice(undefined, "videoScanner", (result, err)=>{
-      if(result) processarCodigoLido(result.getText());
-    });
+    // Pede explicitamente câmera traseira + resolução alta + foco contínuo,
+    // em vez de deixar o navegador escolher sozinho (podia estar pegando câmera errada/baixa resolução)
+    const constraints = {
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        advanced: [{ focusMode: "continuous" }]
+      }
+    };
+    try{
+      await zxingReader.decodeFromConstraints(constraints, "videoScanner", (result, err)=>{
+        if(result) processarCodigoLido(result.getText());
+      });
+    }catch(constraintErr){
+      // Se o navegador não aceitar essas constraints específicas, tenta o modo padrão como reserva
+      zxingReader.decodeFromVideoDevice(undefined, "videoScanner", (result, err)=>{
+        if(result) processarCodigoLido(result.getText());
+      });
+    }
   }catch(err){
     document.getElementById("scannerStatus").textContent = "Não consegui usar o leitor (" + (err.message||"erro desconhecido") + "). Use foto ou digitação manual abaixo.";
     document.getElementById("scannerStatus").style.color = "var(--danger)";
