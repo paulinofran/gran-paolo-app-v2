@@ -185,6 +185,7 @@
     <div class="card">
       <label style="margin-top:0;">Insumo</label>
       <select id="rendInsumo"></select>
+      <p style="font-size:11px;color:var(--text-muted);margin:4px 0 0;">Insumos por unidade (ex: camarão, ovo) não aparecem aqui — edite o preço deles direto no botão "preço" da tela Estoque.</p>
 
       <h3 style="margin-top:16px;">1. Entrada bruta (o que foi pra produção)</h3>
       <div style="display:flex;gap:8px;">
@@ -228,7 +229,7 @@
       <label>Preço de venda (R$)</label>
       <input type="text" inputmode="decimal" id="novoProdPreco" placeholder="Ex: 45,00">
       <div style="display:flex;gap:8px;margin-top:8px;">
-        <select id="novoProdInsumo" style="flex:1;"></select>
+        <select id="novoProdInsumo" style="flex:1;" onchange="atualizarPlaceholderQtd()"></select>
         <input type="text" inputmode="decimal" id="novoProdGramas" placeholder="Gramas" style="width:90px;">
       </div>
       <button class="ghost small" style="width:100%;margin-top:8px;" id="btnAddItemProduto">+ Adicionar insumo à ficha</button>
@@ -313,6 +314,19 @@ function loadDB(){
       (parsed.contasPagar||[]).forEach(c=>{ if(c.fornecedor) nomesExistentes.add(c.fornecedor.trim()); });
       parsed.fornecedores = Array.from(nomesExistentes).map(nome=>({id:"forn_"+Date.now()+"_"+Math.floor(Math.random()*10000), nome, telefone:null}));
     }
+    // Migração: insumos antigos sem tipoQuantidade viram "por peso" (comportamento de sempre)
+    parsed.insumos.forEach(i=>{ if(!i.tipoQuantidade) i.tipoQuantidade = "g"; });
+    // Migração: itens de ficha técnica antigos sem unidade viram "gramas" (comportamento de sempre)
+    parsed.produtos.forEach(p=>{ (p.itens||[]).forEach(it=>{ if(!it.unidade) it.unidade = "g"; }); });
+    // Importação aditiva do catálogo real (Motor Financeiro da Franquia, 27/09/2026) — só roda uma vez,
+    // soma insumos/produtos que ainda não existem, sem apagar nada que você já cadastrou/editou
+    if(!parsed.importadoMotorFinanceiro20260927){
+      const idsInsumosExistentes = new Set(parsed.insumos.map(i=>i.id));
+      seed.insumos.forEach(i=>{ if(!idsInsumosExistentes.has(i.id)) parsed.insumos.push(i); });
+      const idsProdutosExistentes = new Set(parsed.produtos.map(p=>p.id));
+      seed.produtos.forEach(p=>{ if(!idsProdutosExistentes.has(p.id)) parsed.produtos.push(p); });
+      parsed.importadoMotorFinanceiro20260927 = true;
+    }
     if(parsed.notasFiscais){
       parsed.notasFiscais.forEach(n=>{
         if(!n.itens){
@@ -324,16 +338,124 @@ function loadDB(){
   }
   const seed = {
     insumos: [
-      {id:"frango", nome:"Frango", porcaoReferenciaG:70, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
-      {id:"mussarela_g", nome:"Mussarela grande", porcaoReferenciaG:200, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:2000},
-      {id:"mussarela_p", nome:"Mussarela pequena", porcaoReferenciaG:100, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000}
+      {id:"azeitonas", nome:"Azeitonas", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.015, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"bacon", nome:"Bacon", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.037, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"banana", nome:"Banana", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.0046, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"calabresa", nome:"Calabresa", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.038, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"camarao-pizza", nome:"Camarão Pizza", tipoQuantidade:"un", porcaoReferenciaG:1, custoPorGrama:7.28, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:5},
+      {id:"canela", nome:"Canela", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.03, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"carne-de-sol", nome:"Carne De Sol", tipoQuantidade:"un", porcaoReferenciaG:1, custoPorGrama:7.28, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:5},
+      {id:"catupiry", nome:"Catupiry", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.043, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"cebola", nome:"Cebola", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.006, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"chocolate-ao-leite", nome:"Chocolate Ao Leite", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.03, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"chocolate-branco", nome:"Chocolate Branco", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.028, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"cogumelo", nome:"Cogumelo", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.05, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"cream-cheese", nome:"Cream Cheese", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"creme-de-leite", nome:"Creme De Leite", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.0175, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"frango", nome:"Frango", tipoQuantidade:"un", porcaoReferenciaG:1, custoPorGrama:2.65, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:5},
+      {id:"gorgonzola", nome:"Gorgonzola", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.055, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"lombo", nome:"Lombo", tipoQuantidade:"un", porcaoReferenciaG:1, custoPorGrama:2.5, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:5},
+      {id:"manjericao", nome:"Manjericão", tipoQuantidade:"un", porcaoReferenciaG:1, custoPorGrama:2.0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:5},
+      {id:"manteiga-da-terra", nome:"Manteiga Da Terra", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"massa-de-pizza", nome:"Massa De Pizza", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.00458, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"milho", nome:"Milho", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.0125, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"molho-de-tomate", nome:"Molho De Tomate", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.008, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"morango", nome:"Morango", tipoQuantidade:"un", porcaoReferenciaG:1, custoPorGrama:2.0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:5},
+      {id:"mucarela", nome:"Muçarela", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.041, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"oregano", nome:"Orégano", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.06, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"ovo", nome:"Ovo", tipoQuantidade:"un", porcaoReferenciaG:1, custoPorGrama:0.6, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:5},
+      {id:"parmessao", nome:"Parmessão", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.04, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"peito-de-peru", nome:"Peito De Perú", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.025, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"peperoni", nome:"Peperoni", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.08, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"presunto-de-peru", nome:"Presunto De Perú", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.025, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"provolone", nome:"Provolone", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.05, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"queijo-coalho", nome:"Queijo Coalho", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"tomate", nome:"Tomate", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.007, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
+      {id:"tomate-cereja", nome:"Tomate Cereja", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.03, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000}
     ],
     produtos: [
-      {id:"prod_pg_frango", nome:"Pizza Grande de Frango (exemplo)", precoVenda:45.00, itens:[{insumoId:"frango", gramas:140}]},
-      {id:"prod_pp_frango", nome:"Pizza Pequena de Frango, 1 sabor (exemplo)", precoVenda:28.00, itens:[{insumoId:"frango", gramas:70}]},
-      {id:"prod_pp_frango_meio", nome:"Metade Pequena de Frango, 2 sabores (exemplo)", precoVenda:15.00, itens:[{insumoId:"frango", gramas:35}]},
-      {id:"prod_pg_mussarela", nome:"Pizza Grande de Mussarela (exemplo)", precoVenda:40.00, itens:[{insumoId:"mussarela_g", gramas:200}]},
-      {id:"prod_pp_mussarela", nome:"Pizza Pequena de Mussarela (exemplo)", precoVenda:25.00, itens:[{insumoId:"mussarela_p", gramas:100}]}
+      {id:"agua-mineral-com-gas", nome:"Água Mineral Com Gás 500ml", categoria:"Bebida", precoVenda:4.5, itens:[]},
+      {id:"agua-mineral-sem-gas", nome:"Água Mineral Sem Gás 500ml", categoria:"Bebida", precoVenda:4.0, itens:[]},
+      {id:"borda-catupiry", nome:"Borda Catupiry", categoria:"Borda", precoVenda:14.5, itens:[{insumoId:"catupiry", gramas:220.0, unidade:"g"}, {insumoId:"massa-de-pizza", gramas:60.0, unidade:"g"}]},
+      {id:"borda-chocolate", nome:"Borda Chocolate", categoria:"Doce", precoVenda:13.5, itens:[{insumoId:"chocolate-ao-leite", gramas:220.0, unidade:"g"}, {insumoId:"massa-de-pizza", gramas:60.0, unidade:"g"}]},
+      {id:"pizza-bacon-grande", nome:"Pizza Bacon Grande", categoria:"Tradicional", precoVenda:69.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"bacon", gramas:100.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-bacon-pequena", nome:"Pizza Bacon Pequena", categoria:"Tradicional", precoVenda:40.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"bacon", gramas:50.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-banana-com-chocolate-grande", nome:"Pizza Banana Com Chocolate Grande", categoria:"Doce", precoVenda:59.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"banana", gramas:700.0, unidade:"g"}, {insumoId:"creme-de-leite", gramas:60.0, unidade:"g"}, {insumoId:"chocolate-ao-leite", gramas:450.0, unidade:"g"}]},
+      {id:"pizza-banana-com-chocolate-pequena", nome:"Pizza Banana Com Chocolate Pequena", categoria:"Doce", precoVenda:42.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"banana", gramas:340.0, unidade:"g"}, {insumoId:"chocolate-ao-leite", gramas:300.0, unidade:"g"}, {insumoId:"creme-de-leite", gramas:30.0, unidade:"g"}]},
+      {id:"pizza-banana-nevada-grande", nome:"Pizza Banana Nevada Grande", categoria:"Doce", precoVenda:62.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"banana", gramas:700.0, unidade:"g"}, {insumoId:"chocolate-branco", gramas:450.0, unidade:"g"}, {insumoId:"canela", gramas:40.0, unidade:"g"}, {insumoId:"creme-de-leite", gramas:60.0, unidade:"g"}]},
+      {id:"pizza-banana-nevada-pequena", nome:"Pizza Banana Nevada Pequena", categoria:"Doce", precoVenda:45.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"banana", gramas:340.0, unidade:"g"}, {insumoId:"chocolate-branco", gramas:300.0, unidade:"g"}, {insumoId:"canela", gramas:20.0, unidade:"g"}, {insumoId:"creme-de-leite", gramas:30.0, unidade:"g"}]},
+      {id:"pizza-calabresa-com-catupiry-grande", nome:"Pizza Calabresa Com Catupiry Grande", categoria:"Especial", precoVenda:75.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"calabresa", gramas:200.0, unidade:"g"}, {insumoId:"catupiry", gramas:180.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-calabresa-com-catupiry-pequena", nome:"Pizza Calabresa Com Catupiry Pequena", categoria:"Especial", precoVenda:47.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"calabresa", gramas:100.0, unidade:"g"}, {insumoId:"catupiry", gramas:90.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-calabresa-grande", nome:"Pizza Calabresa Grande", categoria:"Tradicional", precoVenda:59.9, itens:[{insumoId:"massa-de-pizza", gramas:380.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"calabresa", gramas:200.0, unidade:"g"}, {insumoId:"cebola", gramas:140.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-calabresa-grande-promocao", nome:"Pizza Calabresa  Grande Promoção", categoria:"Promoção", precoVenda:49.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"calabresa", gramas:200.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"cebola", gramas:140.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-calabresa-pequena", nome:"Pizza Calabresa Pequena", categoria:"Tradicional", precoVenda:35.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"calabresa", gramas:100.0, unidade:"g"}, {insumoId:"cebola", gramas:70.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-camarao-com-catupiry-grande", nome:"Pizza Camarão Com Catupiry Grande", categoria:"Especial", precoVenda:94.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"camarao-pizza", gramas:2.0, unidade:"un"}, {insumoId:"catupiry", gramas:180.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-camarao-com-catupiry-pequena", nome:"Pizza Camarão Com Catupiry Pequena", categoria:"Especial", precoVenda:54.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"camarao-pizza", gramas:1.0, unidade:"un"}, {insumoId:"catupiry", gramas:90.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-camarao-grande", nome:"Pizza Camarão Grande", categoria:"Especial", precoVenda:79.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"camarao-pizza", gramas:2.0, unidade:"un"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}, {insumoId:"cebola", gramas:140.0, unidade:"g"}]},
+      {id:"pizza-camarao-pequena", nome:"Pizza Camarão Pequena", categoria:"Especial", precoVenda:52.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"camarao-pizza", gramas:1.0, unidade:"un"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}, {insumoId:"cebola", gramas:70.0, unidade:"g"}]},
+      {id:"pizza-carne-de-sol-c-queijo-coalho-grande", nome:"Pizza Carne De Sol C/ Queijo Coalho Grande", categoria:"Especial", precoVenda:77.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"carne-de-sol", gramas:2.0, unidade:"un"}, {insumoId:"queijo-coalho", gramas:200.0, unidade:"g"}, {insumoId:"cebola", gramas:140.0, unidade:"g"}, {insumoId:"manteiga-da-terra", gramas:40.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-carne-de-sol-c-queijo-coalho-pequena", nome:"Pizza Carne De Sol C/ Queijo Coalho Pequena", categoria:"Especial", precoVenda:49.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:50.0, unidade:"g"}, {insumoId:"carne-de-sol", gramas:1.0, unidade:"un"}, {insumoId:"queijo-coalho", gramas:100.0, unidade:"g"}, {insumoId:"cebola", gramas:70.0, unidade:"g"}, {insumoId:"manteiga-da-terra", gramas:20.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-carne-de-sol-com-catupiry-grande", nome:"Pizza Carne De Sol Com Catupiry Grande", categoria:"Especial", precoVenda:79.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"carne-de-sol", gramas:2.0, unidade:"un"}, {insumoId:"catupiry", gramas:180.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-carne-de-sol-com-catupiry-pequena", nome:"Pizza Carne De Sol Com Catupiry Pequena", categoria:"Especial", precoVenda:52.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"carne-de-sol", gramas:1.0, unidade:"un"}, {insumoId:"catupiry", gramas:90.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-carne-de-sol-grande", nome:"Pizza Carne De Sol  Grande", categoria:"Especial", precoVenda:75.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"carne-de-sol", gramas:2.0, unidade:"un"}, {insumoId:"cebola", gramas:140.0, unidade:"g"}, {insumoId:"manteiga-da-terra", gramas:40.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-carne-de-sol-pequena", nome:"Pizza Carne De Sol Pequena", categoria:"Especial", precoVenda:47.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"carne-de-sol", gramas:1.0, unidade:"un"}, {insumoId:"cebola", gramas:70.0, unidade:"g"}, {insumoId:"manteiga-da-terra", gramas:20.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-chocolate-com-morango-grande", nome:"Pizza Morango Com Chocolate Grande", categoria:"Doce", precoVenda:65.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"creme-de-leite", gramas:60.0, unidade:"g"}, {insumoId:"chocolate-ao-leite", gramas:450.0, unidade:"g"}, {insumoId:"morango", gramas:4.0, unidade:"un"}]},
+      {id:"pizza-chocolate-com-morango-pequena", nome:"Pizza Morango Com Chocolate Pequena", categoria:"Doce", precoVenda:45.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"creme-de-leite", gramas:30.0, unidade:"g"}, {insumoId:"chocolate-ao-leite", gramas:300.0, unidade:"g"}, {insumoId:"morango", gramas:2.0, unidade:"un"}]},
+      {id:"pizza-chocolate-grande", nome:"Pizza Chocolate Grande", categoria:"Doce", precoVenda:59.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"creme-de-leite", gramas:60.0, unidade:"g"}, {insumoId:"chocolate-ao-leite", gramas:450.0, unidade:"g"}]},
+      {id:"pizza-chocolate-mesclado-grande", nome:"Pizza Chocolate Mesclado Grande", categoria:"Doce", precoVenda:59.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"creme-de-leite", gramas:60.0, unidade:"g"}, {insumoId:"chocolate-branco", gramas:225.0, unidade:"g"}, {insumoId:"chocolate-ao-leite", gramas:225.0, unidade:"g"}]},
+      {id:"pizza-chocolate-mesclado-pequena", nome:"Pizza Chocolate Mesclado Pequena", categoria:"Doce", precoVenda:42.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"creme-de-leite", gramas:30.0, unidade:"g"}, {insumoId:"chocolate-branco", gramas:150.0, unidade:"g"}, {insumoId:"chocolate-ao-leite", gramas:150.0, unidade:"g"}]},
+      {id:"pizza-chocolate-pequena", nome:"Pizza Chocolate Pequena", categoria:"Doce", precoVenda:42.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"creme-de-leite", gramas:30.0, unidade:"g"}, {insumoId:"chocolate-ao-leite", gramas:300.0, unidade:"g"}]},
+      {id:"pizza-frango-ao-milho-g-promocao", nome:"Pizza Frango Ao Milho G. Promoção", categoria:"Promoção", precoVenda:49.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"frango", gramas:2.0, unidade:"un"}, {insumoId:"milho", gramas:200.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-frango-ao-milho-grande", nome:"Pizza Frango Ao Milho Grande", categoria:"Tradicional", precoVenda:59.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"frango", gramas:2.0, unidade:"un"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}, {insumoId:"milho", gramas:200.0, unidade:"g"}]},
+      {id:"pizza-frango-ao-milho-pequena", nome:"Pizza Frango Ao Milho Pequena", categoria:"Tradicional", precoVenda:35.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"frango", gramas:1.0, unidade:"un"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}, {insumoId:"milho", gramas:100.0, unidade:"g"}]},
+      {id:"pizza-frango-c-cream-cheese-grande", nome:"Pizza Frango C/ Cream Cheese Grande", categoria:"Especial", precoVenda:75.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"frango", gramas:2.0, unidade:"un"}, {insumoId:"cream-cheese", gramas:180.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-frango-c-cream-cheese-pequena", nome:"Pizza Frango C/ Cream Cheese Pequena", categoria:"Especial", precoVenda:45.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"frango", gramas:1.0, unidade:"un"}, {insumoId:"cream-cheese", gramas:90.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-frango-com-bacon-grande", nome:"Pizza Frango Com Bacon Grande", categoria:"Tradicional", precoVenda:73.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"frango", gramas:2.0, unidade:"un"}, {insumoId:"bacon", gramas:100.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-frango-com-bacon-pequena", nome:"Pizza Frango Com Bacon Pequena", categoria:"Tradicional", precoVenda:45.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"frango", gramas:1.0, unidade:"un"}, {insumoId:"bacon", gramas:50.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-frango-com-catupiry-grande", nome:"Pizza Frango Com Catupiry Grande", categoria:"Especial", precoVenda:75.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"frango", gramas:2.0, unidade:"un"}, {insumoId:"catupiry", gramas:180.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-frango-com-catupiry-pequena", nome:"Pizza Frango Com Catupiry Pequena", categoria:"Especial", precoVenda:45.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"frango", gramas:1.0, unidade:"un"}, {insumoId:"catupiry", gramas:90.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-gorgonzola-especial-grande", nome:"Pizza Gorgonzola Especial Grande", categoria:"Especial", precoVenda:75.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"tomate-cereja", gramas:200.0, unidade:"g"}, {insumoId:"gorgonzola", gramas:100.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-gorgonzola-especial-pequena", nome:"Pizza Gorgonzola Especial Pequena", categoria:"Especial", precoVenda:47.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"tomate-cereja", gramas:100.0, unidade:"g"}, {insumoId:"gorgonzola", gramas:50.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-gran-paolo-especial-grande", nome:"Pizza Gran Paolo Especial Grande", categoria:"Especial", precoVenda:83.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"frango", gramas:2.0, unidade:"un"}, {insumoId:"bacon", gramas:100.0, unidade:"g"}, {insumoId:"cream-cheese", gramas:140.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-gran-paolo-especial-pequena", nome:"Pizza Gran Paolo Especial Pequena", categoria:"Especial", precoVenda:55.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"frango", gramas:1.0, unidade:"un"}, {insumoId:"bacon", gramas:50.0, unidade:"g"}, {insumoId:"cream-cheese", gramas:70.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-lombo-com-catupiry-grande", nome:"Pizza Lombo Com Catupiry Grande", categoria:"Especial", precoVenda:84.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"lombo", gramas:2.0, unidade:"un"}, {insumoId:"catupiry", gramas:180.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-lombo-com-catupiry-pequena", nome:"Pizza Lombo Com Catupiry Pequena", categoria:"Especial", precoVenda:47.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"lombo", gramas:1.0, unidade:"un"}, {insumoId:"catupiry", gramas:90.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-lombo-grande", nome:"Pizza Lombo Grande", categoria:"Especial", precoVenda:73.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"lombo", gramas:2.0, unidade:"un"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-lombo-pequena", nome:"Pizza Lombo Pequena", categoria:"Especial", precoVenda:45.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"lombo", gramas:1.0, unidade:"un"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-marguerita-especial-grande", nome:"Pizza Marguerita Especial Grande", categoria:"Especial", precoVenda:75.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"tomate-cereja", gramas:200.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-marguerita-especial-pequena", nome:"Pizza Marguerita Especial Pequena", categoria:"Especial", precoVenda:47.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"tomate-cereja", gramas:100.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-marguerita-grande", nome:"Pizza Marguerita Grande", categoria:"Tradicional", precoVenda:59.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"tomate", gramas:200.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}, {insumoId:"manjericao", gramas:2.0, unidade:"un"}]},
+      {id:"pizza-marguerita-grande-promocao", nome:"Pizza Marguerita Grande Promoção", categoria:"Promoção", precoVenda:49.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"tomate", gramas:200.0, unidade:"g"}, {insumoId:"manjericao", gramas:2.0, unidade:"un"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-marguerita-pequena", nome:"Pizza Marguerita Pequena", categoria:"Tradicional", precoVenda:35.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"tomate", gramas:100.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}, {insumoId:"manjericao", gramas:1.0, unidade:"un"}]},
+      {id:"pizza-mista-grande", nome:"Pizza Mista Grande", categoria:"Tradicional", precoVenda:59.9, itens:[{insumoId:"presunto-de-peru", gramas:200.0, unidade:"g"}, {insumoId:"tomate", gramas:200.0, unidade:"g"}, {insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-mista-grande-promocao", nome:"Pizza Mista Grande Promoção", categoria:"Promoção", precoVenda:49.9, itens:[]},
+      {id:"pizza-mista-pequena", nome:"Pizza Mista Pequena", categoria:"Tradicional", precoVenda:35.9, itens:[{insumoId:"presunto-de-peru", gramas:100.0, unidade:"g"}, {insumoId:"tomate", gramas:100.0, unidade:"g"}, {insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-mucarela-grande", nome:"Pizza Muçarela Grande", categoria:"Tradicional", precoVenda:59.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:250.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-mucarela-pequena", nome:"Pizza Muçarela Pequena", categoria:"Tradicional", precoVenda:35.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:125.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-napolitana-grande", nome:"Pizza Napolitana Grande", categoria:"Tradicional", precoVenda:59.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"tomate", gramas:200.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}, {insumoId:"parmessao", gramas:6.0, unidade:"g"}]},
+      {id:"pizza-napolitana-pequena", nome:"Pizza Napolitana Pequena", categoria:"Tradicional", precoVenda:35.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"tomate", gramas:100.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}, {insumoId:"parmessao", gramas:3.0, unidade:"g"}]},
+      {id:"pizza-peito-de-peru-com-catupiry-grande", nome:"Pizza Peito De Perú Com Catupiry Grande", categoria:"Especial", precoVenda:75.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"peito-de-peru", gramas:140.0, unidade:"g"}, {insumoId:"catupiry", gramas:180.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-peito-de-peru-com-catupiry-pequena", nome:"Pizza Peito De Perú Com Catupiry Pequena", categoria:"Especial", precoVenda:47.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"peito-de-peru", gramas:70.0, unidade:"g"}, {insumoId:"catupiry", gramas:90.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-peito-de-peru-grande", nome:"Pizza Peito De Peru Grande", categoria:"Especial", precoVenda:73.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"peito-de-peru", gramas:140.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-peito-de-peru-pequena", nome:"Pizza Peito De Peru Pequena", categoria:"Especial", precoVenda:45.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"peito-de-peru", gramas:70.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-peperoni-grande", nome:"Pizza Pepperoni Grande", categoria:"Especial", precoVenda:75.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"peperoni", gramas:140.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-peperoni-pequena", nome:"Pizza Pepperoni Pequena", categoria:"Especial", precoVenda:47.9, itens:[{insumoId:"massa-de-pizza", gramas:100.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"peperoni", gramas:70.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-pepperoni-c-catupiry-grande", nome:"Pizza Pepperoni C/ Catupiry Grande", categoria:"Especial", precoVenda:89.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"peperoni", gramas:140.0, unidade:"g"}, {insumoId:"catupiry", gramas:180.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-pepperoni-c-catupiry-pequena", nome:"Pizza Pepperoni C/ Catupiry Pequena", categoria:"Especial", precoVenda:49.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"peperoni", gramas:70.0, unidade:"g"}, {insumoId:"catupiry", gramas:90.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-pepperoni-c-cream-cheese-grande", nome:"Pizza Pepperoni C/ Cream Cheese Grande", categoria:"Especial", precoVenda:89.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"peperoni", gramas:140.0, unidade:"g"}, {insumoId:"cream-cheese", gramas:180.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-pepperoni-c-cream-cheese-pequena", nome:"Pizza Pepperoni C/ Cream Cheese Pequena", categoria:"Especial", precoVenda:49.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"peperoni", gramas:70.0, unidade:"g"}, {insumoId:"cream-cheese", gramas:90.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-portuguesa-grande", nome:"Pizza Portuguesa Grande", categoria:"Tradicional", precoVenda:59.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}, {insumoId:"presunto-de-peru", gramas:200.0, unidade:"g"}, {insumoId:"cebola", gramas:140.0, unidade:"g"}, {insumoId:"ovo", gramas:3.0, unidade:"un"}]},
+      {id:"pizza-portuguesa-pequena", nome:"Pizza Portuguesa Pequena", categoria:"Tradicional", precoVenda:35.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}, {insumoId:"presunto-de-peru", gramas:100.0, unidade:"g"}, {insumoId:"cebola", gramas:70.0, unidade:"g"}, {insumoId:"ovo", gramas:1.5, unidade:"un"}]},
+      {id:"pizza-quatro-queijos-grande", nome:"Pizza Quatro Queijos Grande", categoria:"Especial", precoVenda:73.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"provolone", gramas:40.0, unidade:"g"}, {insumoId:"gorgonzola", gramas:40.0, unidade:"g"}, {insumoId:"parmessao", gramas:10.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-quatro-queijos-pequena", nome:"Pizza Quatro Queijos Pequena", categoria:"Especial", precoVenda:45.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"provolone", gramas:20.0, unidade:"g"}, {insumoId:"gorgonzola", gramas:20.0, unidade:"g"}, {insumoId:"parmessao", gramas:5.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-siciliana-grande", nome:"Pizza Siciliana Grande", categoria:"Tradicional", precoVenda:69.9, itens:[{insumoId:"massa-de-pizza", gramas:400.0, unidade:"g"}, {insumoId:"mucarela", gramas:200.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:100.0, unidade:"g"}, {insumoId:"bacon", gramas:100.0, unidade:"g"}, {insumoId:"cogumelo", gramas:200.0, unidade:"g"}, {insumoId:"oregano", gramas:2.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"pizza-siciliana-pequena", nome:"Pizza Siciliana Pequena", categoria:"Tradicional", precoVenda:42.9, itens:[{insumoId:"massa-de-pizza", gramas:200.0, unidade:"g"}, {insumoId:"mucarela", gramas:100.0, unidade:"g"}, {insumoId:"molho-de-tomate", gramas:50.0, unidade:"g"}, {insumoId:"bacon", gramas:50.0, unidade:"g"}, {insumoId:"cogumelo", gramas:100.0, unidade:"g"}, {insumoId:"oregano", gramas:1.0, unidade:"g"}, {insumoId:"azeitonas", gramas:20.0, unidade:"g"}]},
+      {id:"refrigerante-1l-coca-fanta", nome:"Refrigerante 1 Litro (Coca-Cola | Coca-Cola Zero | Fanta Laranja)", categoria:"Bebida", precoVenda:10.9, itens:[]},
+      {id:"refrigerante-1l-guarana-pepsi", nome:"Refrigerante 1 Litro (Guaraná Ou Pepsi)", categoria:"Bebida", precoVenda:9.5, itens:[]},
+      {id:"refrigerante-lata-coca-cola", nome:"Refrigerante Lata 350ml (Coca-Cola | Coca-Cola Zero)", categoria:"Bebida", precoVenda:7.5, itens:[]},
+      {id:"refrigerante-lata-guarana-pepsi-sukita", nome:"Refrigerante Lata 350ml (Guaraná | Pepsi | Sukita)", categoria:"Bebida", precoVenda:7.0, itens:[]},
+      {id:"suco-de-laranja-300ml", nome:"Suco De Laranja 300ml", categoria:"Bebida", precoVenda:9.9, itens:[]},
+      {id:"suco-de-laranja-jarra-700ml", nome:"Suco De Laranja Jarra 700ml", categoria:"Bebida", precoVenda:18.9, itens:[]}
     ],
     vendasManual: [],
     fornecedores: [],
@@ -894,11 +1016,20 @@ function formatPeso(g){
   if(g >= 1000) return (g/1000).toFixed(3).replace(".",",")+" kg";
   return Math.round(g)+" g";
 }
+function formatQtd(insumo, valor){
+  if(insumo && insumo.tipoQuantidade==="un"){
+    const v = Math.round(valor*100)/100;
+    return v + (v===1 ? " unidade" : " unidades");
+  }
+  return formatPeso(valor);
+}
 
 /* ---------- Rendimento ---------- */
 function renderRendimento(){
   const selInsumo = document.getElementById("rendInsumo");
-  selInsumo.innerHTML = db.insumos.map(i=>'<option value="'+i.id+'">'+esc(i.nome)+' (ref: '+i.porcaoReferenciaG+'g)</option>').join("");
+  const porPeso = db.insumos.filter(i=>i.tipoQuantidade!=="un");
+  selInsumo.innerHTML = porPeso.length ? porPeso.map(i=>'<option value="'+i.id+'">'+esc(i.nome)+' (ref: '+i.porcaoReferenciaG+'g)</option>').join("")
+    : '<option value="">Nenhum insumo por peso cadastrado</option>';
   document.getElementById("rendValorCompra").value="";
   document.getElementById("rendCustoAdicional").value="";
   document.getElementById("rendPesoFinal").value="";
@@ -990,33 +1121,53 @@ function renderEstoque(){
   prod.innerHTML = db.insumos.map(i=>{
     const s = statusBadge(i, i.saldoProducaoG);
     return '<div class="card row"><div><p class="item-title">'+esc(i.nome)+'</p>'+
-      '<p class="item-sub">'+formatPeso(i.saldoProducaoG)+'</p></div>'+
+      '<p class="item-sub">'+formatQtd(i, i.saldoProducaoG)+'</p></div>'+
       '<span class="badge '+s.cls+'">'+s.label+'</span></div>';
   }).join("");
   cen.innerHTML = db.insumos.map(i=>{
+    const custoLabel = i.tipoQuantidade==="un" ? "R$"+i.custoPorGrama.toFixed(2).replace(".",",")+"/un" : "R$"+i.custoPorGrama.toFixed(4).replace(".",",")+"/g";
     return '<div class="card row"><div><p class="item-title">'+esc(i.nome)+'</p>'+
-      '<p class="item-sub">'+formatPeso(i.saldoCentralG)+'</p></div>'+
-      '<button class="small" onclick="transferir(\''+i.id+'\')">transferir</button></div>';
+      '<p class="item-sub">'+formatQtd(i, i.saldoCentralG)+' · '+custoLabel+'</p></div>'+
+      '<span><button class="small ghost" style="margin-right:4px;" onclick="editarPrecoInsumo(\''+i.id+'\')">preço</button>'+
+      '<button class="small" onclick="transferir(\''+i.id+'\')">transferir</button></span></div>';
   }).join("");
+}
+function editarPrecoInsumo(insumoId){
+  const insumo = db.insumos.find(i=>i.id===insumoId);
+  if(!insumo) return;
+  const unidadeTxt = insumo.tipoQuantidade==="un" ? "por UNIDADE" : "por GRAMA";
+  const atual = insumo.tipoQuantidade==="un" ? insumo.custoPorGrama.toFixed(2) : insumo.custoPorGrama.toFixed(4);
+  const novo = numBR(prompt("Novo custo "+unidadeTxt+" de \""+insumo.nome+"\" (atual: R$"+atual.replace(".",",")+"):", atual.replace(".",",")));
+  if(novo===null || isNaN(novo) || novo<0) return;
+  insumo.custoPorGrama = novo;
+  saveDB(db);
+  renderEstoque();
 }
 document.getElementById("btnNovoInsumo").addEventListener("click", ()=>{
   const nome = prompt("Nome do novo insumo (ex: Calabresa, Molho de tomate):");
   if(!nome || !nome.trim()) return;
-  const porcaoRefStr = prompt("Porção de referência em gramas (ex: 50):", "50");
-  const porcaoRef = numBR(porcaoRefStr)||50;
-  const minimoStr = prompt("Estoque mínimo de segurança na Produção, em gramas (ex: 1000):", "1000");
-  const minimo = numBR(minimoStr)||1000;
+  const tipoResp = (prompt("Esse insumo é controlado por PESO (gramas) ou por UNIDADE (ex: 1 camarão, 1 ovo)?\nDigite: peso ou unidade", "peso")||"peso").trim().toLowerCase();
+  const tipoQuantidade = tipoResp.startsWith("un") ? "un" : "g";
+  let porcaoRef, minimo;
+  if(tipoQuantidade==="g"){
+    porcaoRef = numBR(prompt("Porção de referência em gramas (ex: 50):", "50"))||50;
+    minimo = numBR(prompt("Estoque mínimo de segurança na Produção, em gramas (ex: 1000):", "1000"))||1000;
+  } else {
+    porcaoRef = 1;
+    minimo = numBR(prompt("Estoque mínimo de segurança na Produção, em unidades (ex: 10):", "10"))||10;
+  }
   const id = "insumo_"+Date.now();
-  db.insumos.push({id, nome:nome.trim(), porcaoReferenciaG:porcaoRef, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:minimo});
+  db.insumos.push({id, nome:nome.trim(), tipoQuantidade, porcaoReferenciaG:porcaoRef, custoPorGrama:0, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:minimo});
   saveDB(db);
   renderEstoque();
   alert("Insumo \""+nome.trim()+"\" cadastrado!");
 });
 function transferir(insumoId){
   const insumo = db.insumos.find(i=>i.id===insumoId);
-  const respostaG = parseFloat(prompt("Quantos GRAMAS transferir do Central para o Produção?\nDisponível no Central: "+formatPeso(insumo.saldoCentralG)));
+  const unidadeTxt = insumo.tipoQuantidade==="un" ? "UNIDADES" : "GRAMAS";
+  const respostaG = parseFloat(prompt("Quantas "+unidadeTxt+" transferir do Central para o Produção?\nDisponível no Central: "+formatQtd(insumo, insumo.saldoCentralG)));
   if(!respostaG || respostaG<=0) return;
-  if(respostaG > insumo.saldoCentralG){ alert("Não há peso suficiente no Central."); return; }
+  if(respostaG > insumo.saldoCentralG){ alert("Não há quantidade suficiente no Central."); return; }
   insumo.saldoCentralG -= respostaG;
   insumo.saldoProducaoG += respostaG;
   db.movimentacoes.push({insumoId, tipo:"transferencia", localOrigem:"central", localDestino:"producao", pesoG:respostaG, data:new Date().toISOString()});
@@ -1036,6 +1187,7 @@ let novoProdutoItens = [];
 function renderProdutos(){
   const selInsumo = document.getElementById("novoProdInsumo");
   selInsumo.innerHTML = db.insumos.map(i=>'<option value="'+i.id+'">'+esc(i.nome)+'</option>').join("");
+  atualizarPlaceholderQtd();
   document.getElementById("novoProdNome").value = "";
   document.getElementById("novoProdPreco").value = "";
   document.getElementById("novoProdGramas").value = "";
@@ -1046,7 +1198,8 @@ function renderProdutos(){
   list.innerHTML = db.produtos.length ? db.produtos.map(p=>{
     const itensTexto = p.itens.map(it=>{
       const ins = db.insumos.find(i=>i.id===it.insumoId);
-      return (ins?ins.nome:it.insumoId)+": "+it.gramas+"g";
+      const suf = (it.unidade==="un") ? " un" : "g";
+      return (ins?ins.nome:it.insumoId)+": "+it.gramas+suf;
     }).join(" · ");
     const custoTotal = p.itens.reduce((s,it)=>{
       const ins = db.insumos.find(i=>i.id===it.insumoId);
@@ -1063,7 +1216,8 @@ function renderNovoProdutoPreview(){
   if(novoProdutoItens.length===0){ box.innerHTML=""; return; }
   box.innerHTML = novoProdutoItens.map((it,idx)=>{
     const ins = db.insumos.find(i=>i.id===it.insumoId);
-    return '<div class="row" style="padding:4px 0;"><span class="item-sub">'+(ins?esc(ins.nome):it.insumoId)+': '+it.gramas+'g</span>'+
+    const suf = (it.unidade==="un") ? " un" : "g";
+    return '<div class="row" style="padding:4px 0;"><span class="item-sub">'+(ins?esc(ins.nome):it.insumoId)+': '+it.gramas+suf+'</span>'+
       '<button class="small ghost" onclick="removerItemNovoProduto('+idx+')">x</button></div>';
   }).join("");
 }
@@ -1071,11 +1225,18 @@ function removerItemNovoProduto(idx){
   novoProdutoItens.splice(idx,1);
   renderNovoProdutoPreview();
 }
+function atualizarPlaceholderQtd(){
+  const insumoId = document.getElementById("novoProdInsumo").value;
+  const ins = db.insumos.find(i=>i.id===insumoId);
+  document.getElementById("novoProdGramas").placeholder = (ins && ins.tipoQuantidade==="un") ? "Unidades" : "Gramas";
+}
 document.getElementById("btnAddItemProduto").addEventListener("click", ()=>{
   const insumoId = document.getElementById("novoProdInsumo").value;
+  const ins = db.insumos.find(i=>i.id===insumoId);
+  const unidade = (ins && ins.tipoQuantidade==="un") ? "un" : "g";
   const gramas = valorCampo("novoProdGramas");
-  if(!gramas || gramas<=0){ alert("Informe a quantidade em gramas."); return; }
-  novoProdutoItens.push({insumoId, gramas});
+  if(!gramas || gramas<=0){ alert("Informe a quantidade."); return; }
+  novoProdutoItens.push({insumoId, gramas, unidade});
   document.getElementById("novoProdGramas").value = "";
   renderNovoProdutoPreview();
 });
@@ -1152,7 +1313,7 @@ document.getElementById("btnRegistrarVenda").addEventListener("click", ()=>{
   Object.keys(totalPorInsumo).forEach(insumoId=>{
     const insumo = db.insumos.find(i=>i.id===insumoId);
     if(insumo && insumo.saldoProducaoG < totalPorInsumo[insumoId]){
-      faltou.push(insumo.nome+" (precisa "+formatPeso(totalPorInsumo[insumoId])+", tem "+formatPeso(insumo.saldoProducaoG)+")");
+      faltou.push(insumo.nome+" (precisa "+formatQtd(insumo, totalPorInsumo[insumoId])+", tem "+formatQtd(insumo, insumo.saldoProducaoG)+")");
     }
   });
   if(faltou.length && !confirm("Atenção, estoque de Produção insuficiente para:\n"+faltou.join("\n")+"\n\nRegistrar mesmo assim (estoque pode ficar negativo/zerado)?")) return;
@@ -1183,6 +1344,12 @@ function renderConferencia(){
   document.getElementById("cicloDias").textContent = db.cicloConferenciaDias;
   const lista = document.getElementById("conferenciaLista");
   lista.innerHTML = db.insumos.map(i=>{
+    if(i.tipoQuantidade==="un"){
+      return '<div class="card">'+
+        '<div class="row"><span class="item-title">'+esc(i.nome)+' · Produção · esperado</span><span class="item-title">'+formatQtd(i, i.saldoProducaoG)+'</span></div>'+
+        '<label>Quantas unidades tem fisicamente agora?</label><input type="text" inputmode="decimal" id="conf_'+i.id+'" value="'+i.saldoProducaoG+'">'+
+        '</div>';
+    }
     return '<div class="card">'+
       '<div class="row"><span class="item-title">'+esc(i.nome)+' · Produção · esperado</span><span class="item-title">'+formatPeso(i.saldoProducaoG)+'</span></div>'+
       '<label>Peso físico pesado agora (kg)</label><input type="text" inputmode="decimal" id="conf_'+i.id+'" value="'+(i.saldoProducaoG/1000).toFixed(3).replace(".",",")+'">'+
@@ -1194,10 +1361,10 @@ function confirmarConferencia(){
   let msgs = [];
   db.insumos.forEach(i=>{
     const input = document.getElementById("conf_"+i.id);
-    const pesadoG = numBR(input.value)*1000;
-    const divG = Math.round(pesadoG - i.saldoProducaoG);
-    if(Math.abs(divG) >= 1){
-      msgs.push(esc(i.nome)+": divergência de "+formatPeso(Math.abs(divG))+(divG<0?" a menos":" a mais"));
+    const pesadoG = i.tipoQuantidade==="un" ? numBR(input.value) : numBR(input.value)*1000;
+    const divG = Math.round((pesadoG - i.saldoProducaoG)*100)/100;
+    if(Math.abs(divG) >= (i.tipoQuantidade==="un" ? 0.01 : 1)){
+      msgs.push(esc(i.nome)+": divergência de "+formatQtd(i, Math.abs(divG))+(divG<0?" a menos":" a mais"));
       db.movimentacoes.push({insumoId:i.id, tipo:"ajuste_conferencia", pesoG:divG, data:new Date().toISOString()});
       i.saldoProducaoG = pesadoG;
     }
