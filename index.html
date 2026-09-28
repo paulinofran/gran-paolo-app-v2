@@ -298,44 +298,6 @@ const EMPRESA_ID = "gran-paolo";
 const LOJA_ID = "centro";
 
 function loadDB(){
-  const raw = localStorage.getItem(DB_KEY);
-  if(raw){
-    const parsed = JSON.parse(raw);
-    if(!parsed.produtos) parsed.produtos = [];
-    parsed.produtos.forEach(p=>{ if(p.precoVenda===undefined) p.precoVenda = 0; });
-    if(!parsed.vendasManual) parsed.vendasManual = [];
-    parsed.vendasManual.forEach(v=>{
-      if(v.receitaTotal===undefined) v.receitaTotal = 0;
-      if(v.custoInsumoTotal===undefined) v.custoInsumoTotal = 0;
-    });
-    if(!parsed.fornecedores){
-      // Migração: cria cadastro a partir dos nomes de fornecedor já digitados antes (texto livre)
-      const nomesExistentes = new Set();
-      (parsed.contasPagar||[]).forEach(c=>{ if(c.fornecedor) nomesExistentes.add(c.fornecedor.trim()); });
-      parsed.fornecedores = Array.from(nomesExistentes).map(nome=>({id:"forn_"+Date.now()+"_"+Math.floor(Math.random()*10000), nome, telefone:null}));
-    }
-    // Migração: insumos antigos sem tipoQuantidade viram "por peso" (comportamento de sempre)
-    parsed.insumos.forEach(i=>{ if(!i.tipoQuantidade) i.tipoQuantidade = "g"; });
-    // Migração: itens de ficha técnica antigos sem unidade viram "gramas" (comportamento de sempre)
-    parsed.produtos.forEach(p=>{ (p.itens||[]).forEach(it=>{ if(!it.unidade) it.unidade = "g"; }); });
-    // Importação aditiva do catálogo real (Motor Financeiro da Franquia, 27/09/2026) — só roda uma vez,
-    // soma insumos/produtos que ainda não existem, sem apagar nada que você já cadastrou/editou
-    if(!parsed.importadoMotorFinanceiro20260927){
-      const idsInsumosExistentes = new Set(parsed.insumos.map(i=>i.id));
-      seed.insumos.forEach(i=>{ if(!idsInsumosExistentes.has(i.id)) parsed.insumos.push(i); });
-      const idsProdutosExistentes = new Set(parsed.produtos.map(p=>p.id));
-      seed.produtos.forEach(p=>{ if(!idsProdutosExistentes.has(p.id)) parsed.produtos.push(p); });
-      parsed.importadoMotorFinanceiro20260927 = true;
-    }
-    if(parsed.notasFiscais){
-      parsed.notasFiscais.forEach(n=>{
-        if(!n.itens){
-          n.itens = n.insumoId ? [{id:"item_"+n.id, insumoId:n.insumoId, valor:n.valor, lancamentoRendimentoId:n.lancamentoRendimentoId||null}] : [];
-        }
-      });
-    }
-    return parsed;
-  }
   const seed = {
     insumos: [
       {id:"azeitonas", nome:"Azeitonas", tipoQuantidade:"g", porcaoReferenciaG:100, custoPorGrama:0.015, saldoCentralG:0, saldoProducaoG:0, minimoProducaoG:1000},
@@ -465,6 +427,46 @@ function loadDB(){
     movimentacoes: [],
     cicloConferenciaDias: 3
   };
+  const raw = localStorage.getItem(DB_KEY);
+  if(raw){
+    const parsed = JSON.parse(raw);
+    if(!parsed.produtos) parsed.produtos = [];
+    parsed.produtos.forEach(p=>{ if(p.precoVenda===undefined) p.precoVenda = 0; });
+    if(!parsed.vendasManual) parsed.vendasManual = [];
+    parsed.vendasManual.forEach(v=>{
+      if(v.receitaTotal===undefined) v.receitaTotal = 0;
+      if(v.custoInsumoTotal===undefined) v.custoInsumoTotal = 0;
+    });
+    if(!parsed.fornecedores){
+      // Migração: cria cadastro a partir dos nomes de fornecedor já digitados antes (texto livre)
+      const nomesExistentes = new Set();
+      (parsed.contasPagar||[]).forEach(c=>{ if(c.fornecedor) nomesExistentes.add(c.fornecedor.trim()); });
+      parsed.fornecedores = Array.from(nomesExistentes).map(nome=>({id:"forn_"+Date.now()+"_"+Math.floor(Math.random()*10000), nome, telefone:null}));
+    }
+    // Migração: insumos antigos sem tipoQuantidade viram "por peso" (comportamento de sempre)
+    parsed.insumos.forEach(i=>{ if(!i.tipoQuantidade) i.tipoQuantidade = "g"; });
+    // Migração: itens de ficha técnica antigos sem unidade viram "gramas" (comportamento de sempre)
+    parsed.produtos.forEach(p=>{ (p.itens||[]).forEach(it=>{ if(!it.unidade) it.unidade = "g"; }); });
+    // Importação aditiva do catálogo real (Motor Financeiro da Franquia, 27/09/2026) — só roda uma vez,
+    // soma insumos/produtos que ainda não existem, sem apagar nada que você já cadastrou/editou
+    if(!parsed.importadoMotorFinanceiro20260927){
+      try{
+        const idsInsumosExistentes = new Set(parsed.insumos.map(i=>i.id));
+        seed.insumos.forEach(i=>{ if(!idsInsumosExistentes.has(i.id)) parsed.insumos.push(JSON.parse(JSON.stringify(i))); });
+        const idsProdutosExistentes = new Set(parsed.produtos.map(p=>p.id));
+        seed.produtos.forEach(p=>{ if(!idsProdutosExistentes.has(p.id)) parsed.produtos.push(JSON.parse(JSON.stringify(p))); });
+        parsed.importadoMotorFinanceiro20260927 = true;
+      }catch(e){ console.error("Importação do catálogo falhou, app segue normal:", e); }
+    }
+    if(parsed.notasFiscais){
+      parsed.notasFiscais.forEach(n=>{
+        if(!n.itens){
+          n.itens = n.insumoId ? [{id:"item_"+n.id, insumoId:n.insumoId, valor:n.valor, lancamentoRendimentoId:n.lancamentoRendimentoId||null}] : [];
+        }
+      });
+    }
+    return parsed;
+  }
   localStorage.setItem(DB_KEY, JSON.stringify(seed));
   return seed;
 }
