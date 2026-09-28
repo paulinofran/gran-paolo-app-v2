@@ -62,12 +62,65 @@
   nav.bottom.area-home{display:none;}
   .btn-inicio{display:flex;flex-direction:column;align-items:center;gap:2px;}
 </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===== REPAGINADA VISUAL v3 — só aparência, sem mexer na lógica ===== */
+:root{
+  --bg:#F7F1E8; --card:#FFFFFF; --ink:#2A1D15; --ink-soft:#7A6A5C;
+  --line:#EADFD0; --accent:#B23A2F; --accent-dark:#8F2A21; --accent-soft:#F7E1DD;
+  --ok:#2F6B45; --ok-soft:#DFF0E4; --warn:#9A5F0B; --warn-soft:#FBEACB;
+  --danger:#A22B20; --danger-soft:#F9DAD5; --radius:16px;
+  --shadow:0 1px 2px rgba(60,35,20,.06),0 6px 16px rgba(60,35,20,.06);
+}
+body{font-family:'Inter',-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;
+  background:linear-gradient(180deg,#F1E6D6 0,var(--bg) 160px);}
+#app{padding-bottom:92px;}
+/* Cabeçalho da marca */
+header.top{padding:22px 18px 18px;margin:0 0 14px;background:linear-gradient(135deg,#7E2119 0%,#B23A2F 100%);
+  color:#fff;border-radius:0 0 26px 26px;box-shadow:0 8px 22px rgba(126,33,25,.28);}
+header.top h1{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:700;letter-spacing:.2px;margin:0 0 4px;}
+header.top p{font-size:12px;color:rgba(255,255,255,.82);letter-spacing:.3px;}
+/* Cartões */
+.card{border:none;border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px;}
+h3{font-family:'Playfair Display',Georgia,serif;font-size:16px;color:var(--ink);margin:18px 2px 10px;font-weight:600;}
+.item-title{font-size:15px;font-weight:600;}
+.item-sub{font-size:12.5px;line-height:1.4;}
+/* Selos */
+.badge{font-size:11px;padding:4px 10px;letter-spacing:.2px;}
+/* Botões */
+button{border-radius:12px;font-weight:500;min-height:42px;transition:transform .08s ease,box-shadow .15s ease;}
+button:active{transform:scale(.97);}
+button.primary{background:linear-gradient(135deg,var(--accent) 0%,var(--accent-dark) 100%);box-shadow:0 4px 12px rgba(178,58,47,.32);font-weight:600;}
+button.small{min-height:34px;border-radius:10px;}
+button.selected{background:var(--accent);box-shadow:0 3px 8px rgba(178,58,47,.28);}
+/* Campos */
+input,select{border-radius:12px;padding:11px 12px;border:1.5px solid var(--line);background:#FFFDFA;}
+input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(178,58,47,.15);}
+label{font-weight:500;letter-spacing:.2px;}
+/* Home */
+.home-card{border:none;border-radius:20px;padding:20px 18px;box-shadow:var(--shadow);background:#fff;}
+.home-card .home-icon{width:54px;height:54px;border-radius:16px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-size:28px;flex:none;}
+.home-card .home-title{font-family:'Playfair Display',Georgia,serif;font-size:18px;font-weight:600;}
+.home-card .home-sub{font-size:12.5px;}
+/* Avisos */
+.callout{border-radius:14px;padding:12px 14px;font-size:12.5px;line-height:1.45;}
+/* Menu inferior */
+nav.bottom{background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-top:none;box-shadow:0 -6px 20px rgba(60,35,20,.10);border-radius:22px 22px 0 0;}
+nav.bottom button{min-height:58px;font-size:10.5px;font-weight:500;position:relative;}
+nav.bottom button.active{color:var(--accent);font-weight:600;}
+nav.bottom button.active::before{content:"";position:absolute;top:0;left:30%;right:30%;height:3px;border-radius:0 0 4px 4px;background:var(--accent);}
+nav.bottom .icon{font-size:20px;}
+.empty{font-size:13.5px;}
+</style>
+
 </head>
 <body>
 <div id="app">
   <header class="top">
     <h1 id="screenTitle">Contas a pagar</h1>
-    <p id="screenSubtitle">Gran Paolo Pizzaria · Unidade Centro</p>
+    <p id="screenSubtitle">Gran Paolo Pizzaria · Nova Parnamirim</p>
   </header>
 
   <!-- HOME -->
@@ -98,9 +151,20 @@
       <p class="item-sub" style="margin-bottom:8px;">Faça isso <strong>antes</strong> de trocar de versão do app, pra não perder o que já foi lançado.</p>
       <div style="display:flex;gap:8px;">
         <button class="ghost small" style="flex:1;" id="btnExportar">⬇️ Exportar backup</button>
-        <button class="ghost small" style="flex:1;" id="btnImportarBtn">⬆️ Importar backup</button>
+        <label class="ghost small" id="lblImportar" style="flex:1;margin:0;position:relative;overflow:hidden;text-align:center;border:1px solid var(--line);border-radius:10px;padding:8px 6px;font-size:12px;color:var(--ink);background:transparent;cursor:pointer;">
+          ⬆️ Importar backup
+          <input type="file" id="inputImportar" accept="*/*" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0;">
+        </label>
       </div>
-      <input type="file" accept="application/json" id="inputImportar" style="display:none;">
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="ghost small" style="flex:1;" id="btnCopiarBackup">📋 Copiar backup</button>
+        <button class="ghost small" style="flex:1;" id="btnColarBackup">📥 Colar backup</button>
+      </div>
+      <div id="colarBox" style="display:none;margin-top:8px;">
+        <textarea id="colarTexto" placeholder="Cole aqui o texto do backup" style="width:100%;height:90px;border:1.5px solid var(--line);border-radius:12px;padding:8px;font-size:12px;"></textarea>
+        <button class="primary small" style="width:100%;margin-top:6px;" id="btnConfirmarColar">Restaurar backup colado</button>
+      </div>
+      <p id="backupMsg" class="item-sub" style="margin-top:8px;font-weight:600;"></p>
     </div>
   </section>
 
@@ -476,10 +540,10 @@ let db = loadDB();
 /* ---------- Navegação ---------- */
 const titles = {
   home:["Gran Paolo","Escolha uma área"],
-  contas:["Contas a pagar","Gran Paolo Pizzaria · Unidade Centro"],
+  contas:["Contas a pagar","Gran Paolo Pizzaria · Nova Parnamirim"],
   nova:["Nova conta","O que você tirou foto?"],
   rendimento:["Registrar rendimento","Entra automaticamente no estoque Central"],
-  estoque:["Estoque","Gran Paolo · Unidade Centro"],
+  estoque:["Estoque","Gran Paolo · Nova Parnamirim"],
   produtos:["Produtos","Ficha técnica de consumo por produto"],
   venda:["Registrar venda","Lançamento manual, debita a Produção"],
   conferencia:["Fechamento e conferência","Confira o que sobrou fisicamente"],
@@ -526,27 +590,49 @@ document.getElementById("btnExportar").addEventListener("click", ()=>{
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  backupMsg("Backup gerado. Procure o arquivo backup-gran-paolo-...json em Downloads.", true);
 });
-document.getElementById("btnImportarBtn").addEventListener("click", ()=>{
-  document.getElementById("inputImportar").click();
-});
+function backupMsg(t,ok){ const m=document.getElementById("backupMsg"); m.textContent=t; m.style.color= ok? "var(--ok)" : "var(--danger)"; }
+function restaurarBackup(texto){
+  try{
+    const novo = JSON.parse(texto);
+    if(!novo || typeof novo!=="object" || !Array.isArray(novo.contasPagar) || !Array.isArray(novo.insumos)){
+      backupMsg("Esse arquivo não parece um backup do app Gran Paolo.", false); return;
+    }
+    // Segurança: guarda uma cópia dos dados atuais antes de substituir
+    try{ localStorage.setItem(DB_KEY+"_antes_da_importacao", JSON.stringify(db)); }catch(e){}
+    localStorage.setItem(DB_KEY, JSON.stringify(novo));
+    backupMsg("✅ Backup restaurado! "+novo.contasPagar.length+" conta(s) e "+novo.insumos.length+" insumo(s). Recarregando...", true);
+    setTimeout(()=>location.reload(), 1200);
+  }catch(err){
+    backupMsg("Não consegui ler o conteúdo. Confirme se é o backup gerado pelo app.", false);
+  }
+}
 document.getElementById("inputImportar").addEventListener("change", (e)=>{
   const file = e.target.files[0];
   if(!file) return;
+  backupMsg("Lendo arquivo...", true);
   const reader = new FileReader();
-  reader.onload = (ev)=>{
-    try{
-      const novo = JSON.parse(ev.target.result);
-      if(!confirm("Isso vai SUBSTITUIR todos os dados atuais do app pelos dados do backup. Confirmar?")) return;
-      db = novo;
-      saveDB(db);
-      alert("Backup importado com sucesso!");
-      showScreen("home");
-    }catch(err){
-      alert("Não consegui ler esse arquivo. Confirme se é um backup válido gerado pelo próprio app.");
-    }
-  };
+  reader.onload = (ev)=> restaurarBackup(ev.target.result);
+  reader.onerror = ()=> backupMsg("Não consegui abrir o arquivo. Use 'Colar backup'.", false);
   reader.readAsText(file);
+  e.target.value = "";
+});
+document.getElementById("btnCopiarBackup").addEventListener("click", async ()=>{
+  const txt = JSON.stringify(db);
+  try{ await navigator.clipboard.writeText(txt); backupMsg("✅ Backup copiado! Cole no WhatsApp/Notas pra guardar.", true); }
+  catch(e){
+    const box=document.getElementById("colarBox"); box.style.display="block";
+    const ta=document.getElementById("colarTexto"); ta.value=txt; ta.select();
+    backupMsg("Toque no texto, selecione tudo e copie manualmente.", false);
+  }
+});
+document.getElementById("btnColarBackup").addEventListener("click", ()=>{
+  const box=document.getElementById("colarBox");
+  box.style.display = box.style.display==="none" ? "block" : "none";
+});
+document.getElementById("btnConfirmarColar").addEventListener("click", ()=>{
+  restaurarBackup(document.getElementById("colarTexto").value.trim());
 });
 
 /* ---------- Contas a pagar ---------- */
